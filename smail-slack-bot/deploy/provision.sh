@@ -5,7 +5,7 @@ BOT_HOST="${1:?usage: provision.sh bot.example.com preview.example.com}"
 PREVIEW_HOST="${2:?usage: provision.sh bot.example.com preview.example.com}"
 
 apt-get update -y && apt-get upgrade -y
-apt-get install -y curl rsync tar ufw caddy ca-certificates
+apt-get install -y curl git tar ufw caddy ca-certificates
 # Node 22
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
 # Claude CLI (needed on the server; login is by token, see README)
