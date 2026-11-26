@@ -1,0 +1,97 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Review change"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Add mentor: Sara Ali*\nCohort 3\nAssociate Professor · أستاذ مشارك\nKFSH · مستشفى الملك فيصل التخصصي"
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "https://smail.org.sa/images/Female-icon.png",
+        "alt_text": "Add mentor: Sara Ali"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "actions",
+      "block_id": "job:ab12cd34",
+      "elements": [
+        {
+          "type": "button",
+          "action_id": "open_preview",
+          "text": {
+            "type": "plain_text",
+            "text": "Open preview",
+            "emoji": true
+          },
+          "url": "https://preview.example.com/0f3a/"
+        },
+        {
+          "type": "button",
+          "action_id": "approve",
+          "style": "primary",
+          "value": "ab12cd34",
+          "text": {
+            "type": "plain_text",
+            "text": "Approve & publish"
+          },
+          "confirm": {
+            "title": {
+              "type": "plain_text",
+              "text": "Publish to the live site?"
+            },
+            "text": {
+              "type": "mrkdwn",
+              "text": "This goes live for everyone and is saved in the public repository."
+            },
+            "confirm": {
+              "type": "plain_text",
+              "text": "Publish"
+            },
+            "deny": {
+              "type": "plain_text",
+              "text": "Not yet"
+            }
+          }
+        },
+        {
+          "type": "button",
+          "action_id": "decline",
+          "style": "danger",
+          "value": "ab12cd34",
+          "text": {
+            "type": "plain_text",
+            "text": "Decline"
+          }
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Requested by <@U01ABC>"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "Preview link is private and not indexed"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "Expires in 24h"
+        }
+      ]
+    }
+  ]
+}

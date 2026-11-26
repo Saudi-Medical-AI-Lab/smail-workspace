@@ -1,0 +1,25 @@
+{
+  "name": "smail-slack-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Slack bot that edits the SMAIL site: preview link, Approve/Decline, then live. Reuses ../smail-mcp content logic.",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.0.0",
+    "better-sqlite3": "^12.0.0",
+    "sharp": "^0.35.5",
+    "tsx": "^4.20.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}

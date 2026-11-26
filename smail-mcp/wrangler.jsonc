@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smail-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "GITHUB_OWNER": "Saudi-Medical-AI-Lab",
+    "GITHUB_REPO": "smail",
+    "GITHUB_BRANCH": "main",
+    "ALLOWED_ORIGIN": ""
+  }
+}

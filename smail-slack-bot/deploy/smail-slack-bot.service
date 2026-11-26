@@ -1,0 +1,19 @@
+[Unit]
+Description=SMAIL Slack bot
+After=network-online.target
+
+[Service]
+User=smailbot
+WorkingDirectory=/opt/smail/smail-slack-bot
+EnvironmentFile=/etc/smail-slack-bot.env
+Environment=HOME=/home/smailbot
+ExecStart=/opt/smail/smail-slack-bot/node_modules/.bin/tsx src/server.ts
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/smail/smail-slack-bot/data /var/www/previews /tmp /home/smailbot
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

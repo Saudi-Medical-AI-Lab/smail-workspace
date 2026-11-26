@@ -1,0 +1,16 @@
+# Replace example.com. Two DNS A records -> this droplet: bot.example.com, preview.example.com
+bot.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+preview.example.com {
+	root * /var/www/previews
+	file_server
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	# No directory listing: slugs are unguessable and must not be enumerable.
+}
