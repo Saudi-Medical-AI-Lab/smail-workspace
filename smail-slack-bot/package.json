@@ -4,6 +4,24 @@
   "private": true,
   "type": "module",
   "description": "Slack bot that edits the SMAIL site: preview link, Approve/Decline, then live. Reuses ../smail-mcp content logic.",
+  "license": "MIT",
+  "author": "Saudi Medical AI Lab (SMAIL)",
+  "homepage": "https://smail.org.sa",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saudi-Medical-AI-Lab/smail-workspace.git",
+    "directory": "smail-slack-bot"
+  },
+  "bugs": {
+    "url": "https://github.com/Saudi-Medical-AI-Lab/smail-workspace/issues"
+  },
+  "keywords": [
+    "slack-bot",
+    "claude",
+    "github-pages",
+    "digitalocean",
+    "content-management"
+  ],
   "scripts": {
     "start": "tsx src/server.ts",
     "test": "vitest run",

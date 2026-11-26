@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/smail-logo.svg" alt="SMAIL logo" width="280">
+</p>
+
 # smail-mcp
 
 An MCP server that edits the SMAIL website content (JSON files in `data/`) through the GitHub API.
@@ -31,3 +35,5 @@ Destructive (preview first, then `confirm: true`): `remove_item`, `undo_last_cha
 - Auth is a shared bearer token. Before giving access to other people, move to per-user sign-in (OAuth with a GitHub allowlist).
 - The write limiter is per server instance, best effort. The 100-item cap and git history are the real backstops.
 - `upload_image` does not resize. Use web-sized images.
+
+> Part of [smail-workspace](../README.md). Code is MIT licensed (see [LICENSE](../LICENSE)); the SMAIL name, logo and member photos are not covered ([NOTICE](../NOTICE)).

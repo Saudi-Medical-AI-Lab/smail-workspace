@@ -1,6 +1,14 @@
-# Only the MCP and the Slack bot live in this repo. Everything else in this folder stays local.
+# Only the MCP, the Slack bot and the repo's own files live here. Everything else in this folder stays local.
 /*
 !/.gitignore
+!/.github/
+!/assets/
 !/smail-mcp/
 !/smail-slack-bot/
+!/README.md
+!/LICENSE
+!/NOTICE
+!/CONTRIBUTING.md
+!/SECURITY.md
+!/CODE_OF_CONDUCT.md
 .DS_Store

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/smail-logo.svg" alt="SMAIL logo" width="280">
+</p>
+
 # smail-slack-bot
 
 Slack -> preview -> Approve/Decline -> live, for smail.org.sa. Reuses `../smail-mcp/src` (schema, guards, ContentService, GitHubRepo). The repo holds both folders; `deploy/deploy.sh user@host` pulls it on the server. The bot refuses to start if the sibling is missing.
@@ -26,3 +30,5 @@ Slack -> preview -> Approve/Decline -> live, for smail.org.sa. Reuses `../smail-
 - "Claude login expired" alert: run `claude setup-token` on a laptop, update `CLAUDE_CODE_OAUTH_TOKEN`, `systemctl restart smail-slack-bot`.
 - Bot misbehaving: `@smail-bot pause`, or `systemctl stop smail-slack-bot`. Bad change already live: `@smail-bot undo`, or revert the squash commit on GitHub.
 - Tests: `npm test`. Typecheck: `npm run typecheck`.
+
+> Part of [smail-workspace](../README.md). Code is MIT licensed (see [LICENSE](../LICENSE)); the SMAIL name, logo and member photos are not covered ([NOTICE](../NOTICE)).
