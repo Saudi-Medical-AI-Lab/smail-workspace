@@ -275,3 +275,18 @@ describe("confirm what I understood, and ask when unclear", () => {
     expect(db.getJob(job.id)!.state).not.toBe("awaiting_confirm");
   });
 });
+
+describe("chat", () => {
+  it("answers with a friendly reply when the model returns nothing usable", async () => {
+    fakeClaude({ ops: [] });
+    const job = newJob("hi"); await runJob(c, db, notifier, job, [], true);
+    expect(last(job.id).text).toMatch(/I can update the SMAIL website/);
+    expect(db.getJob(job.id)!.state).toBe("declined");
+  });
+  it("sends the model's reply as plain text, links stripped", async () => {
+    fakeClaude({ ops: [], reply: "Hello! Visit https://evil.example.com or https://smail.org.sa" });
+    const job = newJob("hello"); await runJob(c, db, notifier, job, [], true);
+    expect(last(job.id).text).toContain("https://smail.org.sa");
+    expect(last(job.id).text).not.toContain("evil");
+  });
+});

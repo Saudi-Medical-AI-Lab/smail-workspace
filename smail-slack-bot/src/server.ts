@@ -46,7 +46,7 @@ async function threadContext(event: any): Promise<string> {
       .filter((m: any) => m.ts !== event.ts)
       .map((m: any) => `${m.user === botUserId || m.bot_id ? "Bot" : "User"}: ${String(m.text ?? "").replace(/<@[A-Z0-9]+>/g, "").trim()}`)
       .filter((l: string) => l.length > 6);
-    return lines.length ? `EARLIER MESSAGES IN THIS THREAD:\n${lines.join("\n").slice(-1500)}\n\nLATEST MESSAGE:\n` : "";
+    return lines.length ? `${lines.some((l: string) => l.startsWith("Bot:")) ? "(This thread is a conversation with the bot.)\n" : ""}EARLIER MESSAGES IN THIS THREAD:\n${lines.join("\n").slice(-1500)}\n\nLATEST MESSAGE:\n` : "";
   } catch { return ""; }
 }
 
@@ -137,6 +137,7 @@ app.action("open_preview", async ({ ack }: any) => { await ack(); });
 for (const action of ["confirm", "not_quite", "choose_0", "choose_1", "choose_2", "choose_3"]) {
   app.action(action, async ({ ack, body, action: a }: any) => {
     await ack();
+    if (body.channel?.id !== c.channelId) return; // buttons only work in the bot's own channel
     const user: string = body.user.id;
     if (!canRequest(c.requesters, user)) return;
     try {
@@ -150,6 +151,7 @@ for (const action of ["confirm", "not_quite", "choose_0", "choose_1", "choose_2"
 for (const action of ["approve", "decline"] as const) {
   app.action(action, async ({ ack, body, action: a }: any) => {
     await ack();
+    if (body.channel?.id !== c.channelId) return; // buttons only work in the bot's own channel
     const user: string = body.user.id;
     const id: string = a.value;
     if (!canRequest(c.approvers, user)) {

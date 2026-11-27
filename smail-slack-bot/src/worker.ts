@@ -39,6 +39,15 @@ export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachmen
       if (!quiet) await n.remove?.(job);
       return;
     }
+    if (!parsed.ops.length && !parsed.reply && !parsed.question && !parsed.choices?.length && !parsed.ignore) {
+      // The model gave no answer at all: never tell someone who said "hi" that no website change was found.
+      parsed.reply = "Hi! I can update the SMAIL website: add or edit people, post news, set the banner, manage cohorts, hide or remove things, or undo the last change. What would you like to do?";
+    }
+    if (!parsed.ops.length && parsed.reply) {
+      db.update(job.id, { state: "declined", error: "chat reply" });
+      await n.status(job, M.chat(parsed.reply));
+      return;
+    }
     if (quiet) await n.status(job, M.working());
     if (!parsed.ops.length && parsed.choices?.length) {
       db.update(job.id, { state: "awaiting_confirm", summary: JSON.stringify(parsed.choices), ops: null });
