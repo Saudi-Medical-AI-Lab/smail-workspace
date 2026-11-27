@@ -62,10 +62,18 @@ export async function runClaude(bin: string, prompt: string, timeoutMs: number):
       child.on("error", (e) => { clearTimeout(timer); reject(e); });
       child.on("close", (code) => {
         clearTimeout(timer);
-        const blob = (stdout + stderr).toLowerCase();
-        if (/401|invalid (bearer|authentication)|oauth|please run .*login|not logged in/.test(blob)) return reject(new ClaudeAuthError("Claude login expired."));
-        if (/rate limit|usage limit|limit reached|429/.test(blob)) return reject(new ClaudeLimitError("Claude usage limit reached."));
-        if (code !== 0) return reject(new Error(`Claude exited with code ${code}.`));
+        // Only look for auth / limit problems when the call actually failed. Checking a successful answer
+        // is wrong: a number like 4290 ms or any word in the model's own reply could look like "429".
+        let env: any = null;
+        try { env = JSON.parse(stdout); } catch { /* not JSON */ }
+        const failed = code !== 0 || env?.is_error === true;
+        if (failed) {
+          const status = Number(env?.api_error_status);
+          const blob = `${stderr} ${typeof env?.result === "string" ? env.result : ""} ${failed && !env ? stdout : ""}`.toLowerCase();
+          if (status === 401 || /\b401\b|invalid (bearer|authentication)|oauth token|please run .*login|not logged in|authentication_error/.test(blob)) return reject(new ClaudeAuthError("Claude login expired."));
+          if (status === 429 || /rate limit|usage limit|limit reached|\b429\b|overloaded_error/.test(blob)) return reject(new ClaudeLimitError("Claude usage limit reached."));
+          if (code !== 0) return reject(new Error(`Claude exited with code ${code}.`));
+        }
         resolve(stdout);
       });
       child.stdin.end(prompt);

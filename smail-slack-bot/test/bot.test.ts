@@ -252,3 +252,15 @@ describe("saving usage", () => {
     expect([ok(), ok(), ok()]).toEqual([true, true, false]);
   });
 });
+
+describe("claude runner does not misread a good answer", () => {
+  const fake = (script: string) => { const f = join(mkdtempSync(join(tmpdir(), "fakeclaude-")), "claude"); writeFileSync(f, "#!/bin/sh\ncat >/dev/null\n" + script); chmodSync(f, 0o755); return f; };
+  it("a successful answer containing 429 / 401 / oauth is NOT an error", async () => {
+    const bin = fake(`echo '{"is_error":false,"duration_ms":4290,"uuid":"x401y","structured_output":{"ops":[],"reply":"the oauth rate limit 429 is explained here"}}'`);
+    expect(await runClaude(bin, "x", 5000)).toEqual({ ops: [], reply: "the oauth rate limit 429 is explained here" });
+  });
+  it("a real 429 reported in the JSON still maps to the limit error", async () => {
+    const bin = fake(`echo '{"is_error":true,"api_error_status":429,"result":"Too many requests"}'`);
+    await expect(runClaude(bin, "x", 5000)).rejects.toBeInstanceOf(ClaudeLimitError);
+  });
+});
