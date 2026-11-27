@@ -42,8 +42,20 @@ export class GitHubAdmin {
     const pr = await this.ok<{ number: number }>(await this.api("/pulls", { method: "POST", body: JSON.stringify({ title: BOT_PREFIX + title, head: branch, base: this.cfg.base, body }) }), "open pull request");
     return pr.number;
   }
+  /** Close a declined or expired pull request, then archive it so it is hidden from the public list and from
+   *  the contribution count of whoever owns the token. Archiving is best effort and can be undone on GitHub. */
   async closePr(n: number): Promise<void> {
-    await this.api(`/pulls/${n}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    const res = await this.api(`/pulls/${n}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    try {
+      const nodeId = ((await res.json()) as { node_id?: string }).node_id;
+      if (nodeId) {
+        await this.doFetch("https://api.github.com/graphql", {
+          method: "POST",
+          headers: { authorization: `Bearer ${this.cfg.token}`, "content-type": "application/json", "user-agent": "smail-slack-bot" },
+          body: JSON.stringify({ query: "mutation($id:ID!){ archivePullRequest(input:{pullRequestId:$id}){ pullRequest{ number } } }", variables: { id: nodeId } }),
+        });
+      }
+    } catch { /* not allowed or not available: the pull request simply stays closed */ }
   }
   /** Squash-merge. The commit title keeps the bot prefix so `undo` still works on it. */
   async mergePr(n: number, title: string): Promise<string> {
