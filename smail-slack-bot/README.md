@@ -7,7 +7,7 @@
 Slack -> preview -> Approve/Decline -> live, for smail.org.sa. Reuses `../smail-mcp/src` (schema, guards, ContentService, GitHubRepo). The repo holds both folders; `deploy/deploy.sh user@host` pulls it on the server. The bot refuses to start if the sibling is missing.
 
 ## Flow
-The bot reads every message in its channel (no @mention needed) and stays silent on chat that is not a site request. Replies in a thread keep the earlier messages as context. `@smail-bot add Sara Ali, mentor cohort 3, KFSH` (+ photo) -> the Claude CLI (subscription token, no tools) turns the text into JSON operations -> validated by smail-mcp -> committed to branch `slack/<id>` -> PR opened -> preview at `PREVIEW_BASE_URL/<slug>/` -> Approve squash-merges to `main` (GitHub Pages publishes) / Decline deletes branch, PR and preview. `@smail-bot undo` reverts the last bot commit (with a confirm card). `@smail-bot pause|resume` (approvers).
+The bot reads every message in its channel (no @mention needed) and stays silent on chat that is not a site request. Replies in a thread keep the earlier messages as context. `@sml-bot add Sara Ali, mentor cohort 3, KFSH` (+ photo) -> the Claude CLI (subscription token, no tools) turns the text into JSON operations -> validated by smail-mcp -> committed to branch `slack/<id>` -> PR opened -> preview at `PREVIEW_BASE_URL/<slug>/` -> Approve squash-merges to `main` (GitHub Pages publishes) / Decline deletes branch, PR and preview. `@sml-bot undo` reverts the last bot commit (with a confirm card). `@sml-bot pause|resume` (approvers).
 
 ## Safety rules (enforced in code)
 - Only users in `REQUESTER_USER_IDS` may ask (`*` = everyone in the private channel); only `APPROVER_USER_IDS` may Approve/Decline (`*` = everyone in the channel, so keep the channel private). One channel only.
@@ -28,7 +28,7 @@ The bot reads every message in its channel (no @mention needed) and stays silent
 
 ## Runbook
 - "Claude login expired" alert: run `claude setup-token` on a laptop, update `CLAUDE_CODE_OAUTH_TOKEN`, `systemctl restart smail-slack-bot`.
-- Bot misbehaving: `@smail-bot pause`, or `systemctl stop smail-slack-bot`. Bad change already live: `@smail-bot undo`, or revert the squash commit on GitHub.
+- Bot misbehaving: `@sml-bot pause`, or `systemctl stop smail-slack-bot`. Bad change already live: `@sml-bot undo`, or revert the squash commit on GitHub.
 - Tests: `npm test`. Typecheck: `npm run typecheck`.
 
 > Part of [smail-workspace](../README.md). Code is MIT licensed (see [LICENSE](../LICENSE)); the SMAIL name, logo and member photos are not covered ([NOTICE](../NOTICE)).

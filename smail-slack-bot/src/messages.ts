@@ -14,9 +14,9 @@ const bullets = (items: Item[]) => items.map((i) => `• ${esc(i.text)}`).join("
 export const working = (stage = "Got it. Working on it…"): Msg => msg(stage, context(`:hourglass_flowing_sand: ${stage}`));
 
 export const help = (): Msg =>
-  msg("How I can help",
-    { type: "header", text: { type: "plain_text", text: "How I can help" } },
-    section("Tell me what to change on the website. If you're adding a person, attach their photo. English or Arabic is fine.\n\n" +
+  msg("Hi, I'm SML Bot",
+    { type: "header", text: { type: "plain_text", text: "Hi, I'm SML Bot" } },
+    section("I keep the SMAIL website up to date. Tell me what to change. If you're adding a person, attach their photo. English or Arabic is fine.\n\n" +
       "• `add Sara Ali, mentor, cohort 3, Associate Professor at KFSH`\n" +
       "• `hide Ann Lee` or `remove Ann Lee`\n" +
       "• `change Tala Jad's name to Tala Alharbi`\n" +

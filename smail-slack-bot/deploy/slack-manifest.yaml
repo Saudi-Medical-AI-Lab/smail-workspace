@@ -1,8 +1,8 @@
 display_information:
-  name: SMAIL Site Bot
+  name: SML Bot
 features:
   bot_user:
-    display_name: smail-bot
+    display_name: sml-bot
     always_online: true
 oauth_config:
   scopes:
