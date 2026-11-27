@@ -7,6 +7,7 @@ const kind = z.enum(["person", "news", "cohort"]);
 
 export const Op = z.discriminatedUnion("op", [
   z.object({ op: z.literal("upsert_person"), person: payload, attachment: z.number().int().min(0).optional() }),
+  z.object({ op: z.literal("update_person"), id: z.string(), patch: payload }),
   z.object({ op: z.literal("post_news"), news: payload, attachment: z.number().int().min(0).optional() }),
   z.object({ op: z.literal("update_news"), id: z.string(), patch: payload }),
   z.object({ op: z.literal("set_banner"), banner: payload }),
@@ -43,7 +44,7 @@ export const PARSE_JSON_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          op: { enum: ["upsert_person", "post_news", "update_news", "set_banner", "upsert_cohort", "set_application", "set_visibility", "remove_item", "undo"] },
+          op: { enum: ["upsert_person", "update_person", "post_news", "update_news", "set_banner", "upsert_cohort", "set_application", "set_visibility", "remove_item", "undo"] },
           person: { type: "object" },
           news: { type: "object" },
           patch: { type: "object" },

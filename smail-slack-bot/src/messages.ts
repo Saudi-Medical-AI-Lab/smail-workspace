@@ -139,3 +139,5 @@ export function progress(current: number, detail?: string): Msg {
     i < current ? `:white_check_mark: ${label}` : i === current ? `:hourglass_flowing_sand: *${label}…*${detail ? `\n      _${esc(detail)}_` : ""}` : `:white_large_square: ${label}`);
   return msg(`${STEPS[Math.min(current, STEPS.length - 1)]}…`, section(lines.join("\n")), context("Nothing goes live until someone approves"));
 }
+
+export const alreadyDone = (): Msg => msg("The website is already like that.", section(":ok_hand: The website is already like that, so there's nothing to change."));
