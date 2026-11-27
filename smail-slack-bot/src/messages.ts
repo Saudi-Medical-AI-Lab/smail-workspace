@@ -115,3 +115,14 @@ export function choiceCard(job: { id: string; requester: string }, question: str
 }
 
 export const tellMore = (): Msg => msg("Okay. Tell me what to change.", section(":pencil2: Okay, nothing was changed. Reply in this thread with what you'd like instead, and I'll take another look."));
+
+/** Model text is untrusted: strip links (except the SMAIL site), neutralize mentions via esc(), and cap the length. */
+export function cleanReply(text: string): string {
+  return text
+    .replace(/https?:\/\/\S+/gi, (u) => (/^https:\/\/smail\.org\.sa(\/|$)/i.test(u) ? u : ""))
+    .replace(/\bwww\.\S+/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim()
+    .slice(0, 600);
+}
+export const chat = (text: string): Msg => { const t = esc(cleanReply(text)) || "Hi! I'm here to help with the SMAIL website."; return msg(t, section(t)); };

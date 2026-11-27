@@ -25,6 +25,8 @@ export const ParseResult = z.object({
   ignore: z.boolean().optional(),
   // One plain sentence saying what the bot understood (shown to the user to confirm).
   understood: z.string().max(300).optional(),
+  // A short friendly answer for messages that are not site edits (hello, thanks, questions about the bot or the site).
+  reply: z.string().max(700).optional(),
   // Set instead of ops when the request could mean different things: 2-4 clear readings the user can pick from.
   choices: z.array(z.object({ label: z.string().max(70), text: z.string().max(300) })).max(4).optional(),
 });
@@ -57,6 +59,7 @@ export const PARSE_JSON_SCHEMA = {
     question: { type: "string" },
     ignore: { type: "boolean" },
     understood: { type: "string" },
+    reply: { type: "string" },
     choices: { type: "array", maxItems: 4, items: { type: "object", properties: { label: { type: "string" }, text: { type: "string" } }, required: ["label", "text"] } },
   },
   required: ["ops"],

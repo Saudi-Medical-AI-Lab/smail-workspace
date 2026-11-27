@@ -34,7 +34,7 @@ export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachmen
     if (!quiet) await n.status(job, M.working());
     const mainRepo = repoFor(c, c.githubBranch);
     const parsed = await parseRequest(c.claudeBin, job.text, attachments.length, await loadSummary(mainRepo), c.claudeTimeoutMs);
-    if (!parsed.ops.length && parsed.ignore) {
+    if (!parsed.ops.length && parsed.ignore && !parsed.reply) {
       db.update(job.id, { state: "declined", error: "ignored (not a site request)" });
       if (!quiet) await n.remove?.(job);
       return;

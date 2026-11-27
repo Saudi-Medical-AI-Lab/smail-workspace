@@ -10,6 +10,8 @@ export interface Job {
   ops: string | null; files: string | null; // parsed operations and Slack file urls, kept while waiting for the user to confirm
 }
 
+const UPDATABLE = new Set(["state", "channel", "thread_ts", "requester", "text", "branch", "slug", "pr", "summary", "kind", "message_ts", "error", "ops", "files"]);
+
 export function openDb(path: string) {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
@@ -40,6 +42,9 @@ export function openDb(path: string) {
     update(id: string, patch: Partial<Omit<Job, "id">>) {
       const keys = Object.keys(patch);
       if (!keys.length) return;
+      // Column names cannot be bound as parameters, so they must come from a fixed list (values are always bound).
+      const bad = keys.find((k) => !UPDATABLE.has(k));
+      if (bad) throw new Error(`Not an updatable column: ${bad}`);
       db.prepare(`UPDATE jobs SET ${keys.map((k) => `${k} = @${k}`).join(", ")} WHERE id = @id`).run({ ...patch, id });
     },
     /** Atomically claims a state transition so a double click cannot approve twice. */

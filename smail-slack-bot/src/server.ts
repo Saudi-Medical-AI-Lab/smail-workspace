@@ -97,6 +97,7 @@ app.message(async ({ message, body, ack }: any) => {
   if (m.bot_id || m.user === botUserId || !m.user) return;
   if (m.subtype && m.subtype !== "file_share") return;
   if (botUserId && String(m.text ?? "").includes(`<@${botUserId}>`)) return;
+  if (/<@[A-Z0-9]+>/.test(String(m.text ?? ""))) return; // addressed to someone else
   await handleRequest(m, body.event_id, true);
 });
 

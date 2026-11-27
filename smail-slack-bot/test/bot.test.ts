@@ -220,3 +220,25 @@ describe("slack messages", () => {
     expect(JSON.stringify(M.help())).toContain("undo");
   });
 });
+
+describe("untrusted input (prompt injection, SQL injection, mentions)", () => {
+  it("model replies lose links and mass mentions", () => {
+    const out = M.chat("Hi <!channel> <@U123> see https://evil.example.com/x and www.evil.io or https://smail.org.sa/news.html");
+    const t = JSON.stringify(out);
+    expect(t).not.toContain("evil");
+    expect(t).not.toContain("<!channel>");
+    expect(t).not.toContain("<@U123>");
+    expect(t).toContain("https://smail.org.sa/news.html");
+    expect(M.cleanReply("x".repeat(5000)).length).toBeLessThanOrEqual(600);
+  });
+  it("SQL in a message is stored as plain text, and unknown columns cannot be updated", () => {
+    const db = openDb(":memory:");
+    const evil = "x'); DROP TABLE jobs;--";
+    db.createJob({ id: "a", channel: "C", thread_ts: "1", requester: evil, text: evil, kind: "edit" });
+    expect(db.getJob("a")!.text).toBe(evil);
+    db.update("a", { error: evil });
+    expect(db.getJob("a")!.error).toBe(evil);
+    expect(() => db.update("a", { ["state = 'live', text"]: "x" } as any)).toThrow(/updatable/);
+    expect(db.getJob("a")).toBeTruthy(); // table still there
+  });
+});
