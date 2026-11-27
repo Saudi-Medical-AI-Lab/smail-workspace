@@ -3,7 +3,7 @@ import { loadConfig } from "./config";
 import { checkSiblings } from "./preflight";
 import { openDb, type Job } from "./db";
 import { normalizeImage, downloadSlackFile } from "./images";
-import { approve, decline, newJobId, runJob, type Notifier } from "./worker";
+import { approve, choose, confirm, decline, newJobId, notQuite, runJob, type Notifier } from "./worker";
 import { runClaude } from "./parser";
 import type { Attachment } from "./apply";
 import * as M from "./messages";
@@ -79,6 +79,7 @@ async function handleRequest(event: any, eventId: string, implicit: boolean) {
   pending.set(id, { urls, quiet: implicit });
   const context = await threadContext(event);
   db.createJob({ id, channel: event.channel, thread_ts: event.thread_ts ?? event.ts, requester: user, text: (context + (text || "(see attached image)")), kind: "edit" });
+  db.update(id, { files: JSON.stringify(urls) });
   db.audit(user, "request", id, text.slice(0, 200));
   void drain();
 }
@@ -99,6 +100,14 @@ app.message(async ({ message, body, ack }: any) => {
   await handleRequest(m, body.event_id, true);
 });
 
+/** Download and clean the images for a job straight from Slack (they are never kept on disk). */
+async function loadAttachments(urls: string[]): Promise<Attachment[]> {
+  return Promise.all(urls.map(async (u, i) => {
+    const norm = await normalizeImage(await downloadSlackFile(u, c.slackBotToken));
+    return { ...norm, name: `image-${i}` };
+  }));
+}
+
 let draining = false;
 async function drain() {
   if (draining) return;
@@ -109,10 +118,7 @@ async function drain() {
       pending.delete(job.id);
       let atts: Attachment[] = [];
       try {
-        atts = await Promise.all((p?.urls ?? []).map(async (u, i) => {
-          const norm = await normalizeImage(await downloadSlackFile(u, c.slackBotToken));
-          return { ...norm, name: `image-${i}` };
-        }));
+        atts = await loadAttachments(p?.urls ?? []);
       } catch (e) {
         db.update(job.id, { state: "failed", error: String((e as Error).message).slice(0, 300) });
         await notifier.status(job, M.failed((e as Error).message));
@@ -125,6 +131,20 @@ async function drain() {
 
 // Link buttons still send an interaction event; acknowledge it or Slack shows a warning icon.
 app.action("open_preview", async ({ ack }: any) => { await ack(); });
+
+// Confirm card and choice buttons ("Is this what you meant?" / "Which one do you mean?")
+for (const action of ["confirm", "not_quite", "choose_0", "choose_1", "choose_2", "choose_3"]) {
+  app.action(action, async ({ ack, body, action: a }: any) => {
+    await ack();
+    const user: string = body.user.id;
+    if (!canRequest(c.requesters, user)) return;
+    try {
+      if (action === "confirm") await confirm(c, db, notifier, a.value, user, loadAttachments);
+      else if (action === "not_quite") await notQuite(db, notifier, a.value, user);
+      else await choose(c, db, notifier, a.value, Number(action.slice(-1)), user, loadAttachments);
+    } catch (e) { console.error(JSON.stringify({ action, err: e instanceof Error ? e.message : String(e) })); }
+  });
+}
 
 for (const action of ["approve", "decline"] as const) {
   app.action(action, async ({ ack, body, action: a }: any) => {
@@ -165,6 +185,9 @@ setInterval(async () => {
   for (const j of db.awaiting()) if (Date.now() - j.created_at > 24 * 3600_000 && db.transition(j.id, "awaiting_approval", "expired")) {
     const { cleanup } = await import("./worker");
     await cleanup(c, db, j.id);
+    await notifier.status(j, M.expired()).catch(() => {});
+  }
+  for (const j of db.waitingConfirm()) if (Date.now() - j.created_at > 2 * 3600_000 && db.transition(j.id, "awaiting_confirm", "expired")) {
     await notifier.status(j, M.expired()).catch(() => {});
   }
 }, 15 * 60_000).unref();

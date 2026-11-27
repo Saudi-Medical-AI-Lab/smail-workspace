@@ -9,6 +9,12 @@ Slack -> preview -> Approve/Decline -> live, for smail.org.sa. Reuses `../smail-
 ## Flow
 The bot reads every message in its channel (no @mention needed) and stays silent on chat that is not a site request. Replies in a thread keep the earlier messages as context. `@sml-bot add Sara Ali, mentor cohort 3, KFSH` (+ photo) -> the Claude CLI (subscription token, no tools) turns the text into JSON operations -> validated by smail-mcp -> committed to branch `slack/<id>` -> PR opened -> preview at `PREVIEW_BASE_URL/<slug>/` -> Approve squash-merges to `main` (GitHub Pages publishes) / Decline deletes branch, PR and preview. `@sml-bot undo` reverts the last bot commit (with a confirm card). `@sml-bot pause|resume` (approvers).
 
+## Plain words in, confirmed action out
+1. The bot turns any plain message into a structured list of edits (Claude, no tools).
+2. **Unclear?** If it could mean different things (two people with one name, mentor or student, hide or remove), it shows buttons with each clear reading: "Which one do you mean?"
+3. **Clear?** It first says what it understood in one sentence, with a short list, and waits for **Yes, go ahead** or **Not quite**. Nothing is built until then. (Turn this off with `CONFIRM_FIRST=0`.)
+4. Only then does it build the preview, and a person still has to press **Approve** before anything goes live.
+
 ## Safety rules (enforced in code)
 - Only users in `REQUESTER_USER_IDS` may ask (`*` = everyone in the private channel); only `APPROVER_USER_IDS` may Approve/Decline (`*` = everyone in the channel, so keep the channel private). One channel only.
 - The model has no tools and cannot touch files. Its JSON is re-validated; the branch diff must only touch `data/*.json` and `images/<folder>/*` or the job is discarded.

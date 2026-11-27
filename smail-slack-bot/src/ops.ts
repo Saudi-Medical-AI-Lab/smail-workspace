@@ -23,6 +23,10 @@ export const ParseResult = z.object({
   question: z.string().max(400).optional(),
   // True when the message is not a site request at all (chat, thanks, discussion). The bot stays silent.
   ignore: z.boolean().optional(),
+  // One plain sentence saying what the bot understood (shown to the user to confirm).
+  understood: z.string().max(300).optional(),
+  // Set instead of ops when the request could mean different things: 2-4 clear readings the user can pick from.
+  choices: z.array(z.object({ label: z.string().max(70), text: z.string().max(300) })).max(4).optional(),
 });
 export type ParseResult = z.infer<typeof ParseResult>;
 
@@ -52,6 +56,8 @@ export const PARSE_JSON_SCHEMA = {
     },
     question: { type: "string" },
     ignore: { type: "boolean" },
+    understood: { type: "string" },
+    choices: { type: "array", maxItems: 4, items: { type: "object", properties: { label: { type: "string" }, text: { type: "string" } }, required: ["label", "text"] } },
   },
   required: ["ops"],
 } as const;

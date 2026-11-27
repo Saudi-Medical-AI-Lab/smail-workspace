@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { loadConfig } from "../src/config";
 import { openDb } from "../src/db";
 import { normalizeImage } from "../src/images";
-import { approve, decline, runJob, type Notifier } from "../src/worker";
+import { notQuite, confirm, choose, approve, decline, runJob, type Notifier } from "../src/worker";
 
 // ── in-memory GitHub ──────────────────────────────────────
 type Tree = Map<string, string>;
@@ -106,7 +106,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "e2e-")); jobN = 0; sent = []; alerts = [];
   gh = fakeGitHub(SITE); vi.stubGlobal("fetch", (u: any, i: any) => gh.handler(String(u), i));
   db = openDb(":memory:");
-  Object.assign(process.env, { SLACK_BOT_TOKEN: "x", SLACK_SIGNING_SECRET: "x", SLACK_CHANNEL_ID: "C1", GITHUB_OWNER: "o", GITHUB_REPO: "r", GITHUB_TOKEN: "t", PREVIEW_BASE_URL: "https://p.example.com", PREVIEW_ROOT: join(dir, "previews"), CLAUDE_BIN: join(dir, "claude"), DEPLOY_POLL_MS: "5", DRY_RUN: "0" });
+  Object.assign(process.env, { SLACK_BOT_TOKEN: "x", SLACK_SIGNING_SECRET: "x", SLACK_CHANNEL_ID: "C1", GITHUB_OWNER: "o", GITHUB_REPO: "r", GITHUB_TOKEN: "t", PREVIEW_BASE_URL: "https://p.example.com", PREVIEW_ROOT: join(dir, "previews"), CLAUDE_BIN: join(dir, "claude"), DEPLOY_POLL_MS: "5", DRY_RUN: "0", CONFIRM_FIRST: "0" });
   delete process.env.ANTHROPIC_API_KEY;
   c = loadConfig();
 });
@@ -207,5 +207,71 @@ describe("whole pipeline, no network", () => {
     const before = gh.refs.get("main"); await approve(c, db, notifier, job.id, "U9");
     expect(gh.refs.get("main")).toBe(before);
     expect(last(job.id).text).toBe("Test run only. Nothing was published.");
+  });
+});
+
+describe("confirm what I understood, and ask when unclear", () => {
+  const withUnderstood = { ...SARA, understood: "Add Sara Ali as a staff member (Coordinator), with the attached photo." };
+  const noFiles = async () => [] as any[];
+  const NOPHOTO = { ops: [{ op: "upsert_person", person: { name: "Sara Ali", group: "staff", title: { en: "Coordinator", ar: "منسقة" }, placeholder: "female" } }] };
+
+  it("shows the plain-language summary first, builds nothing, then builds after 'Yes'", async () => {
+    process.env.CONFIRM_FIRST = "1"; c = loadConfig(); fakeClaude(withUnderstood);
+    const job = newJob("add sara as staff coordinator");
+    await runJob(c, db, notifier, job, [await photo()]);
+    let j = db.getJob(job.id)!;
+    expect(j.state).toBe("awaiting_confirm");
+    expect(j.branch).toBeNull();                       // nothing built yet
+    expect(gh.prs.size).toBe(0);
+    expect(last(job.id).text).toContain("Add Sara Ali as a staff member");
+    expect(texts(last(job.id))).toContain('"action_id":"confirm"');
+    expect(texts(last(job.id))).toContain('"action_id":"not_quite"');
+
+    await confirm(c, db, notifier, job.id, "U2", async () => [await photo()]);
+    j = db.getJob(job.id)!;
+    expect(j.state).toBe("awaiting_approval");          // now the real preview
+    expect(JSON.parse(gh.branch(j.branch!)!.get("data/people.json")!).map((p: any) => p.name)).toContain("Sara Ali");
+    expect(texts(last(job.id))).toContain('"action_id":"approve"');
+  });
+
+  it("double click on 'Yes' builds only once", async () => {
+    process.env.CONFIRM_FIRST = "1"; c = loadConfig(); fakeClaude({ ...NOPHOTO, understood: "Add Sara Ali." });
+    const job = newJob("add sara"); await runJob(c, db, notifier, job, []);
+    await Promise.all([confirm(c, db, notifier, job.id, "U1", noFiles), confirm(c, db, notifier, job.id, "U2", noFiles)]);
+    expect(gh.prs.size).toBe(1);
+  });
+
+  it("'Not quite' builds nothing and asks them to say it again", async () => {
+    process.env.CONFIRM_FIRST = "1"; c = loadConfig(); fakeClaude(withUnderstood);
+    const job = newJob("add sara"); await runJob(c, db, notifier, job, []);
+    await notQuite(db, notifier, job.id, "U1");
+    expect(db.getJob(job.id)!.state).toBe("declined");
+    expect(gh.prs.size).toBe(0);
+    expect(last(job.id).text).toMatch(/Tell me what to change|Nothing was changed/i);
+  });
+
+  it("an unclear request offers choices, and picking one goes straight to the preview", async () => {
+    process.env.CONFIRM_FIRST = "1"; c = loadConfig();
+    fakeClaude({ ops: [], question: "Two people are called Sara. Which one?", choices: [
+      { label: "Sara Ali (staff)", text: "Add Sara Ali as a staff member, Coordinator" },
+      { label: "Sara Ali (mentor)", text: "Add Sara Ali as a mentor" },
+    ] });
+    const job = newJob("add sara"); await runJob(c, db, notifier, job, []);
+    expect(db.getJob(job.id)!.state).toBe("awaiting_confirm");
+    expect(texts(last(job.id))).toContain('"action_id":"choose_0"');
+    expect(texts(last(job.id))).toContain('"action_id":"choose_1"');
+    expect(texts(last(job.id))).toContain("None of these");
+
+    fakeClaude(NOPHOTO); // the model now sees the exact wording the user picked
+    await choose(c, db, notifier, job.id, 0, "U1", noFiles);
+    expect(db.getJob(job.id)!.text).toBe("Add Sara Ali as a staff member, Coordinator");
+    expect(db.getJob(job.id)!.state).toBe("awaiting_approval"); // no second "is this right?"
+  });
+
+  it("undo skips the confirm card (it has its own confirmation)", async () => {
+    process.env.CONFIRM_FIRST = "1"; c = loadConfig(); fakeClaude({ ops: [{ op: "undo" }] });
+    // nothing to undo in the fake repo head, but the point is it never asks 'Is this what you meant?'
+    const job = newJob("undo"); await runJob(c, db, notifier, job, []);
+    expect(db.getJob(job.id)!.state).not.toBe("awaiting_confirm");
   });
 });

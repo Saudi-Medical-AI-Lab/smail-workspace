@@ -30,6 +30,7 @@ export function loadConfig() {
     claudeBin: process.env.CLAUDE_BIN ?? "claude",
     claudeTimeoutMs: Number(process.env.CLAUDE_TIMEOUT_MS ?? 120_000),
     siteUrl: process.env.SITE_URL ?? "https://smail.org.sa",
+    confirmFirst: process.env.CONFIRM_FIRST !== "0", // show "here is what I understood" before building a preview
     dryRun: process.env.DRY_RUN === "1", // build previews but never merge
     deployPollMs: Number(process.env.DEPLOY_POLL_MS ?? 20_000), // how often to check that GitHub Pages has the change
   };

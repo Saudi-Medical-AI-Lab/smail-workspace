@@ -88,3 +88,30 @@ export const authDown = (): Msg => failed("I can't read requests right now becau
 export const limitHit = (): Msg => failed("I've hit my usage limit for now. Please try again later, or ask an admin to make the change.");
 export const adminAlert = (t: string): Msg => msg(t, section(`:rotating_light: ${t}`));
 export const denied = (what: string): string => `:no_entry: ${what}`;
+
+/** "Here is what I understood": shown before anything is built, so the user can confirm or correct. */
+export function confirmCard(job: { id: string; requester: string }, understood: string, lines: string[]): Msg {
+  return msg(`Is this what you meant? ${understood}`,
+    { type: "header", text: { type: "plain_text", text: "Is this what you meant?" } },
+    section(`:speech_balloon: ${esc(understood)}`),
+    ...(lines.length ? [section(lines.slice(0, 12).map((l) => `• ${esc(l)}`).join("\n"))] : []),
+    { type: "actions", block_id: `job:${job.id}`, elements: [
+      { type: "button", action_id: "confirm", style: "primary", value: job.id, text: { type: "plain_text", text: "Yes, go ahead" } },
+      { type: "button", action_id: "not_quite", value: job.id, text: { type: "plain_text", text: "Not quite" } },
+    ] },
+    context(`Asked by <@${job.requester}>`, "Nothing is built until you say yes"));
+}
+
+/** The request could mean different things: let the user pick one. */
+export function choiceCard(job: { id: string; requester: string }, question: string, choices: { label: string; text: string }[]): Msg {
+  return msg(question,
+    { type: "header", text: { type: "plain_text", text: "Which one do you mean?" } },
+    section(`:thinking_face: ${esc(question)}\n\n` + choices.map((c, i) => `*${i + 1}.* ${esc(c.text)}`).join("\n")),
+    { type: "actions", block_id: `job:${job.id}`, elements: [
+      ...choices.map((c, i) => ({ type: "button", action_id: `choose_${i}`, value: job.id, text: { type: "plain_text", text: c.label.slice(0, 70) } })),
+      { type: "button", action_id: "not_quite", value: job.id, text: { type: "plain_text", text: "None of these" } },
+    ] },
+    context(`Asked by <@${job.requester}>`));
+}
+
+export const tellMore = (): Msg => msg("Okay. Tell me what to change.", section(":pencil2: Okay, nothing was changed. Reply in this thread with what you'd like instead, and I'll take another look."));

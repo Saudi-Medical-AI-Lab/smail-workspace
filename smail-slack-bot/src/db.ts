@@ -2,11 +2,12 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-export type JobState = "queued" | "parsing" | "awaiting_approval" | "merging" | "live" | "declined" | "failed" | "expired";
+export type JobState = "queued" | "parsing" | "awaiting_confirm" | "awaiting_approval" | "merging" | "live" | "declined" | "failed" | "expired";
 export interface Job {
   id: string; state: JobState; channel: string; thread_ts: string; requester: string; text: string;
   branch: string | null; slug: string | null; pr: number | null; summary: string | null; kind: "edit" | "undo";
   message_ts: string | null; created_at: number; error: string | null;
+  ops: string | null; files: string | null; // parsed operations and Slack file urls, kept while waiting for the user to confirm
 }
 
 export function openDb(path: string) {
@@ -23,6 +24,7 @@ export function openDb(path: string) {
     CREATE TABLE IF NOT EXISTS audit (at INTEGER NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, job_id TEXT, detail TEXT);
     CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   `);
+  for (const col of ['ops TEXT', 'files TEXT']) { try { db.exec(`ALTER TABLE jobs ADD COLUMN ${col}`); } catch { /* already there */ } }
   const now = () => Date.now();
   return {
     /** true if this id is new (process it); false if Slack already delivered it. */
@@ -46,6 +48,7 @@ export function openDb(path: string) {
     },
     nextQueued: () => db.prepare("SELECT * FROM jobs WHERE state = 'queued' ORDER BY created_at LIMIT 1").get() as Job | undefined,
     stuck: (state: JobState) => db.prepare("SELECT * FROM jobs WHERE state = ?").all(state) as Job[],
+    waitingConfirm: () => db.prepare("SELECT * FROM jobs WHERE state = 'awaiting_confirm'").all() as Job[],
     awaiting: () => db.prepare("SELECT * FROM jobs WHERE state = 'awaiting_approval'").all() as Job[],
     audit(actor: string, action: string, jobId?: string, detail?: string) {
       db.prepare("INSERT INTO audit VALUES (?,?,?,?,?)").run(now(), actor, action, jobId ?? null, detail ?? null);
