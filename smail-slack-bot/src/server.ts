@@ -17,7 +17,13 @@ const app = new App({ token: c.slackBotToken, signingSecret: c.slackSigningSecre
   ...(process.env.SLACK_API_URL ? { clientOptions: { slackApiUrl: process.env.SLACK_API_URL } } : {}) });
 
 // Attachments live in memory only until the job runs (they are re-downloaded from Slack, never stored on disk).
-const pending = new Map<string, { urls: string[]; quiet: boolean }>();
+const pending = new Map<string, { urls: string[]; quiet: boolean; ts: string; channel: string }>();
+
+/** Emoji on the person's own message show that the bot received it (👀), then how it ended. Needs reactions:write; harmless if missing. */
+const react = (channel: string, ts: string, add: string | null, remove?: string) => (async () => {
+  if (remove) await app.client.reactions.remove({ channel, timestamp: ts, name: remove }).catch(() => {});
+  if (add) await app.client.reactions.add({ channel, timestamp: ts, name: add }).catch(() => {});
+})();
 /** "*" means everyone in the (private) channel. Used for both requesters and approvers. */
 const canRequest = (list: string[], id: string) => list.includes("*") || list.includes(id);
 
@@ -74,9 +80,10 @@ async function handleRequest(event: any, eventId: string, implicit: boolean) {
   if (/^(help|\?)$/i.test(text)) return void (await reply(M.help()));
   if (db.paused) return implicit ? undefined : void (await reply(":double_vertical_bar: I'm paused by an admin right now. Please try again later."));
 
+  void react(event.channel, event.ts, "eyes"); // seen: the bot has this message
   const id = newJobId();
   const urls: string[] = (event.files ?? []).filter((f: any) => /^image\//.test(f.mimetype ?? "")).slice(0, 10).map((f: any) => f.url_private_download ?? f.url_private);
-  pending.set(id, { urls, quiet: implicit });
+  pending.set(id, { urls, quiet: implicit, ts: event.ts, channel: event.channel });
   const context = await threadContext(event);
   db.createJob({ id, channel: event.channel, thread_ts: event.thread_ts ?? event.ts, requester: user, text: (context + (text || "(see attached image)")), kind: "edit" });
   db.update(id, { files: JSON.stringify(urls) });
@@ -126,6 +133,11 @@ async function drain() {
         continue;
       }
       await runJob(c, db, notifier, job, atts, p?.quiet ?? false);
+      if (p) { // how it ended, on the person's own message
+        const after = db.getJob(job.id);
+        const ended = after?.state === "failed" ? "x" : after?.error === "ignored (not a site request)" ? null : after?.state === "awaiting_confirm" ? "speech_balloon" : "white_check_mark";
+        void react(p.channel, p.ts, ended, "eyes");
+      }
     }
   } finally { draining = false; }
 }

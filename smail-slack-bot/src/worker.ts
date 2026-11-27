@@ -31,7 +31,7 @@ export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachmen
   const admin = adminFor(c);
   try {
     db.update(job.id, { state: "parsing" });
-    if (!quiet) await n.status(job, M.working());
+    if (!quiet) await n.status(job, M.progress(1));
     const mainRepo = repoFor(c, c.githubBranch);
     const parsed = await parseRequest(c.claudeBin, job.text, attachments.length, await loadSummary(mainRepo), c.claudeTimeoutMs);
     if (!parsed.ops.length && parsed.ignore && !parsed.reply) {
@@ -48,7 +48,7 @@ export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachmen
       await n.status(job, M.chat(parsed.reply));
       return;
     }
-    if (quiet) await n.status(job, M.working());
+    if (quiet && parsed.ops.length) await n.status(job, M.progress(1));
     if (!parsed.ops.length && parsed.choices?.length) {
       db.update(job.id, { state: "awaiting_confirm", summary: JSON.stringify(parsed.choices), ops: null });
       await n.status(job, M.choiceCard(job, parsed.question ?? "That could mean a few things. Which one do you mean?", parsed.choices));
@@ -103,12 +103,15 @@ export async function buildAndReview(c: Config, db: Db, n: Notifier, job: Job, o
   const admin = adminFor(c);
   try {
     const parsed = { ops };
+    await n.status(job, M.progress(2, "Creating a private branch"));
     const branch = `slack/${job.id}`;
     await admin.createBranch(branch);
     db.update(job.id, { branch });
     const slug = newSlug();
+    await n.status(job, M.progress(2, "Applying: " + parsed.ops.map(describeOp).join("; ").slice(0, 160)));
     const summary = await applyOps(repoFor(c, branch), parsed.ops, attachments, (path) => `${c.previewBaseUrl}/${slug}/${path}`);
     const lines = summary.map((i) => i.text);
+    await n.status(job, M.progress(3, "Checking the change and building the preview"));
     await syncSiteFiles(repoFor(c, branch));
     assertAllowedPaths(await admin.changedFiles(branch));
     const pr = await admin.openPr(branch, lines.join("; ").slice(0, 120), `Requested in Slack by <@${job.requester}>.\n\n${lines.map((s) => `- ${s}`).join("\n")}`);
@@ -208,7 +211,7 @@ export async function confirm(c: Config, db: Db, n: Notifier, id: string, actor:
   if (!db.transition(id, "awaiting_confirm", "parsing")) return; // double click
   db.audit(actor, "confirm", id);
   try {
-    await n.status(job, M.working("Great. Building the preview…"));
+    await n.status(job, M.progress(2, "Thanks for confirming"));
     const atts = await loadAttachments(JSON.parse(job.files ?? "[]"));
     await buildAndReview(c, db, n, job, JSON.parse(job.ops) as Op[], atts);
   } catch (e) { await failJob(c, db, n, job, e); }

@@ -15,6 +15,10 @@ The bot reads every message in its channel (no @mention needed) and stays silent
 3. **Clear?** It first says what it understood in one sentence, with a short list, and waits for **Yes, go ahead** or **Not quite**. Nothing is built until then. (Turn this off with `CONFIRM_FIRST=0`.)
 4. Only then does it build the preview, and a person still has to press **Approve** before anything goes live.
 
+## You can see what it is doing
+- 👀 appears on your message the moment the bot has it (needs the `reactions:write` permission), and turns into ✅ when it has answered, 💬 when it is waiting for your "Yes", or ❌ if something failed.
+- A live checklist in the thread shows the stage: message received, Claude reading the request, building the change on a private copy (with what is being applied), making the preview link. It ends in the preview card.
+
 ## Untrusted input (prompt injection, SQL injection)
 Based on the OWASP LLM01 guidance and the "lethal trifecta" / agent design-patterns work (Willison; Beurer-Kellner et al.): the model has no tools, files, tokens or internet, so even a successful injection can only produce text or a list of edits. Those edits are re-validated by code, limited to allowed files, shown to a person, and need Approve. Replies are plain text with links removed (except smail.org.sa) and mentions neutralized. Messages aimed at other people are ignored. The database uses bound parameters only, and the one dynamic part (column names in `update`) is checked against a fixed list.
 

@@ -126,3 +126,16 @@ export function cleanReply(text: string): string {
     .slice(0, 600);
 }
 export const chat = (text: string): Msg => { const t = esc(cleanReply(text)) || "Hi! I'm here to help with the SMAIL website."; return msg(t, section(t)); };
+
+/** A live checklist: shows the person what the bot is doing right now. */
+export const STEPS = [
+  "Got your message",
+  "Claude is reading your request",
+  "Building the change on a private copy",
+  "Making your preview link",
+];
+export function progress(current: number, detail?: string): Msg {
+  const lines = STEPS.map((label, i) =>
+    i < current ? `:white_check_mark: ${label}` : i === current ? `:hourglass_flowing_sand: *${label}…*${detail ? `\n      _${esc(detail)}_` : ""}` : `:white_large_square: ${label}`);
+  return msg(`${STEPS[Math.min(current, STEPS.length - 1)]}…`, section(lines.join("\n")), context("Nothing goes live until someone approves"));
+}
