@@ -11,7 +11,7 @@ export type Attachment = { data: Buffer; ext: "jpg" | "png"; name: string };
 const FOLDER: Record<string, string> = { board: "board", staff: "staff", staff_alumni: "staff", mentor: "mentors", student: "students" };
 
 export async function loadSummary(repo: RepoPort): Promise<Summary> {
-  let s: Summary = { people: [], news: [], cohorts: [] };
+  let s: Summary = { people: [], news: [], cohorts: [], applications: {} };
   await repo.transact(async (read) => {
     const arr = async (p: string) => JSON.parse((await read(p)) ?? "[]") as any[];
     const people = await arr("data/people.json");
@@ -21,6 +21,7 @@ export async function loadSummary(repo: RepoPort): Promise<Summary> {
       people: people.map((p) => ({ id: p.id, name: p.name, group: p.group, cohort: p.cohort ?? null })),
       news: news.map((n) => ({ id: n.id, title: n.title?.en ?? "" })),
       cohorts: cohorts.map((c) => c.id),
+      applications: Object.fromEntries(Object.entries(((JSON.parse((await read("data/site.json")) ?? "{}") as any).applications ?? {}) as Record<string, any>).map(([k, v]) => [k, { open: !!v.open, hasLink: !!v.link, period: v.period?.en ?? "" }])),
     };
     return null;
   });
@@ -72,6 +73,7 @@ export async function applyOps(repo: RepoPort, ops: Op[], attachments: Attachmen
       }
       case "update_news": { await svc.updateNews(op.id, op.patch); lines.push({ text: `Update news ${op.id}` }); break; }
       case "set_banner": { await svc.setBanner(op.banner); lines.push({ text: "Update banner" }); break; }
+      case "set_application": { const a: any = op.application; await svc.setApplication(a); lines.push({ text: `${a.target === "mentor" ? "Mentor" : "Student"} form: ${[a.open === true ? "open it" : a.open === false ? "close it" : "", a.link ? "new link" : "", a.period ? "new dates" : ""].filter(Boolean).join(", ") || "no change"}` }); break; }
       case "upsert_cohort": { await svc.upsertCohort(op.cohort); lines.push({ text: `Update cohort ${(op.cohort as any).id ?? ""}`.trim() }); break; }
       case "set_visibility": { await svc.setVisibility(op.kind, op.id, op.published); lines.push({ text: `${op.published ? "Show" : "Hide"} ${op.kind} ${op.id}` }); break; }
       case "remove_item": { await svc.removeItem(op.kind, op.id, true); lines.push({ text: `Remove ${op.kind} ${op.id}` }); break; }

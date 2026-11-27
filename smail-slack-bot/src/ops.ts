@@ -11,6 +11,7 @@ export const Op = z.discriminatedUnion("op", [
   z.object({ op: z.literal("update_news"), id: z.string(), patch: payload }),
   z.object({ op: z.literal("set_banner"), banner: payload }),
   z.object({ op: z.literal("upsert_cohort"), cohort: payload }),
+  z.object({ op: z.literal("set_application"), application: payload }),
   z.object({ op: z.literal("set_visibility"), kind, id: z.union([z.string(), z.number()]), published: z.boolean() }),
   z.object({ op: z.literal("remove_item"), kind, id: z.union([z.string(), z.number()]) }),
   z.object({ op: z.literal("undo") }),
@@ -42,12 +43,13 @@ export const PARSE_JSON_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          op: { enum: ["upsert_person", "post_news", "update_news", "set_banner", "upsert_cohort", "set_visibility", "remove_item", "undo"] },
+          op: { enum: ["upsert_person", "post_news", "update_news", "set_banner", "upsert_cohort", "set_application", "set_visibility", "remove_item", "undo"] },
           person: { type: "object" },
           news: { type: "object" },
           patch: { type: "object" },
           banner: { type: "object" },
           cohort: { type: "object" },
+          application: { type: "object" },
           kind: { enum: ["person", "news", "cohort"] },
           id: { type: ["string", "number"] },
           published: { type: "boolean" },

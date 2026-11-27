@@ -264,3 +264,16 @@ describe("claude runner does not misread a good answer", () => {
     await expect(runClaude(bin, "x", 5000)).rejects.toBeInstanceOf(ClaudeLimitError);
   });
 });
+
+describe("registration forms", () => {
+  it("applyOps changes the form and describes it in plain words", async () => {
+    const repo = new FakeRepo({ ...seed(), "data/site.json": JSON.stringify({ applications: { student: { open: false, link: "https://forms.gle/s" } } }) });
+    const items = await applyOps(repo, [{ op: "set_application", application: { target: "student", open: true, period: { en: "Jan 1 to Feb 1", ar: "من 1 يناير إلى 1 فبراير" } } }], []);
+    expect(items[0].text).toBe("Student form: open it, new dates");
+    expect(repo.json("data/site.json").applications.student).toMatchObject({ open: true, link: "https://forms.gle/s" });
+  });
+  it("refuses to open a form that has no link", async () => {
+    const repo = new FakeRepo({ ...seed(), "data/site.json": JSON.stringify({}) });
+    await expect(applyOps(repo, [{ op: "set_application", application: { target: "mentor", open: true } }], [])).rejects.toThrow(/link/);
+  });
+});

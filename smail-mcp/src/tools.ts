@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { ContentService } from "./content";
-import { Bilingual, BannerInput, CohortInput, NewsInput, PersonInput, COHORT_STATUSES, PERSON_GROUPS } from "./schema";
+import { ApplicationPatch, Bilingual, BannerInput, CohortInput, NewsInput, PersonInput, COHORT_STATUSES, PERSON_GROUPS } from "./schema";
 import { MAX_BULK, ToolError } from "./guard";
 
 // Best-effort per-isolate write limiter. The real backstops are the bulk cap and git history.
@@ -47,10 +47,10 @@ export function buildServer(svc: ContentService): McpServer {
   server.registerTool("list_content", {
     title: "List website content",
     description:
-      'Read what is on the SMAIL website. kind: "people" (optionally filter by group, cohort, or name text), "cohorts", "news", or "banner". ' +
+      'Read what is on the SMAIL website. kind: "people" (optionally filter by group, cohort, or name text), "cohorts", "news", "banner" or "applications" (the student and mentor forms). ' +
       "Use this first to find ids before changing or removing anything. Returns at most 200 people.",
     inputSchema: z.object({
-      kind: z.enum(["people", "cohorts", "news", "banner"]),
+      kind: z.enum(["people", "cohorts", "news", "banner", "applications"]),
       group: z.enum(PERSON_GROUPS).optional(),
       cohort: cohortId.optional(),
       query: z.string().max(100).optional(),
@@ -112,6 +112,14 @@ export function buildServer(svc: ContentService): McpServer {
     inputSchema: BannerInput,
     annotations: UPSERT,
   }, (a) => run("set_banner", true, () => svc.setBanner(a)));
+
+  server.registerTool("set_application", {
+    title: "Open, close or change a registration form",
+    description:
+      "Control the Students or Mentors registration form on the home page. target: student or mentor. Any of: open (true opens the form, false closes it), link (the https form link), period (the dates, English and Arabic). Only what you give is changed. A form cannot be opened without a link.",
+    inputSchema: ApplicationPatch,
+    annotations: UPSERT,
+  }, (a) => run("set_application", true, () => svc.setApplication(a)));
 
   server.registerTool("set_visibility", {
     title: "Publish or hide an item",

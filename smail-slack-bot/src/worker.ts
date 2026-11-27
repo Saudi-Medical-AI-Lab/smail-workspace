@@ -91,6 +91,7 @@ export function describeOp(o: Op): string {
     case "post_news": return `Post news: ${en((o.news as any).title)}`;
     case "update_news": return `Edit the news item ${o.id}`;
     case "set_banner": return `Set the banner: ${en((o.banner as any).text)}`;
+    case "set_application": { const a: any = o.application; return `${a.target === "mentor" ? "Mentor" : "Student"} registration form: ${[a.open === true ? "open it" : a.open === false ? "close it" : "", a.link ? "change the link" : "", a.period ? `set the dates to ${en(a.period)}` : ""].filter(Boolean).join(", ")}`; }
     case "upsert_cohort": return `Add or update cohort ${(o.cohort as any).id ?? ""}`.trim();
     case "set_visibility": return `${o.published ? "Show" : "Hide"} the ${o.kind} ${o.id}`;
     case "remove_item": return `Remove the ${o.kind} ${o.id}`;
