@@ -50,6 +50,23 @@ describe("people", () => {
   });
 });
 
+describe("application forms", () => {
+  it("closes, opens (needs a link), changes link and dates, and leaves the rest alone", async () => {
+    const repo = new FakeRepo({ ...seed(), "data/site.json": JSON.stringify({ banner: { published: true, text: { en: "Hi", ar: "مرحبا" } }, applications: { student: { open: false, link: "https://forms.gle/a", period: { en: "A", ar: "أ" } } } }) });
+    const svc = new ContentService(repo);
+    await svc.setApplication({ target: "student", open: true });
+    expect(repo.json("data/site.json").applications.student).toMatchObject({ open: true, link: "https://forms.gle/a" });
+    await svc.setApplication({ target: "student", link: "https://forms.gle/new", period: { en: "Jan 1 to Feb 1, 2027", ar: "من 1 يناير إلى 1 فبراير 2027" } });
+    expect(repo.json("data/site.json").applications.student).toMatchObject({ open: true, link: "https://forms.gle/new", period: { en: "Jan 1 to Feb 1, 2027" } });
+    await svc.setApplication({ target: "student", open: false });
+    expect(repo.json("data/site.json").applications.student.open).toBe(false);
+    expect(repo.json("data/site.json").banner.published).toBe(true); // banner untouched
+    await expect(svc.setApplication({ target: "mentor", open: true })).rejects.toThrow(/link/); // no link yet
+    await expect(svc.setApplication({ target: "student", link: "http://insecure.example.com" })).rejects.toThrow();
+    await expect(svc.setApplication({ target: "student", period: { en: "only english" } })).rejects.toThrow();
+  });
+});
+
 describe("cohorts, news, banner", () => {
   it("adds a cohort and then people can join it", async () => {
     const { svc } = setup();

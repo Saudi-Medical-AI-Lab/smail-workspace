@@ -61,6 +61,16 @@ export const BannerInput = z.object({
   linkText: Bilingual.optional(),
 });
 
+// The two application forms on the home page. Only what is given is changed; the rest stays as it was.
+export const APPLICATION_TARGETS = ["student", "mentor"] as const;
+export const ApplicationPatch = z.object({
+  target: z.enum(APPLICATION_TARGETS),
+  open: z.boolean().optional(),
+  link: httpsUrl.optional(),
+  period: Bilingual.optional(), // the dates, for example "From August 16 to September 15, 2026" and its Arabic
+});
+export type ApplicationPatch = z.infer<typeof ApplicationPatch>;
+
 export const slug = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 

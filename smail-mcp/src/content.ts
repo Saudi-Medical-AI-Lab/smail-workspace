@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ApplicationPatch,
   BannerInput,
   CohortInput,
   NewsInput,
@@ -50,7 +51,7 @@ export class ContentService {
   constructor(private repo: RepoPort, private doFetch: (u: string, i?: RequestInit) => Promise<Response> = (u, i) => fetch(u, i)) {}
 
   // ── Reads ────────────────────────────────────────────────
-  async list(kind: "people" | "cohorts" | "news" | "banner", f: { group?: string; cohort?: number; query?: string } = {}) {
+  async list(kind: "people" | "cohorts" | "news" | "banner" | "applications", f: { group?: string; cohort?: number; query?: string } = {}) {
     let data: unknown = null;
     await this.repo.transact(async (read) => {
       if (kind === "people") {
@@ -69,7 +70,8 @@ export class ContentService {
       else if (kind === "news") {
         const rows = await readArray(read, DATA_FILES.news);
         data = rows.map((n) => ({ id: n.id, title: n.title?.en, date: n.date, tag: n.tag, featured: !!n.featured, published: n.published !== false, order: n.order }));
-      } else data = (await readObject(read, DATA_FILES.site)).banner ?? null;
+      } else if (kind === "applications") data = (await readObject(read, DATA_FILES.site)).applications ?? {};
+      else data = (await readObject(read, DATA_FILES.site)).banner ?? null;
       return null;
     });
     return data;
@@ -217,6 +219,23 @@ export class ContentService {
       if (same(site.banner, input)) return { changes: [], message: "", result: { status: "unchanged" } } as Plan<any>;
       site.banner = input;
       return { changes: [{ path: DATA_FILES.site, text: out(site) }], message: input.published ? `Set banner: ${input.text.en}` : "Hide banner", result: { status: "updated", banner: input } } as Plan<any>;
+    });
+    return { ...r.result, commit: r.commit };
+  }
+
+  // ── Application forms (student / mentor) ─────────────────
+  async setApplication(raw: unknown) {
+    const input = parse(ApplicationPatch, raw);
+    const r = await this.repo.transact(async (read) => {
+      const site = await readObject(read, DATA_FILES.site);
+      const apps = (site.applications ??= {});
+      const cur = { open: false, ...(apps[input.target] ?? {}) };
+      const next = { ...cur, ...(input.open !== undefined ? { open: input.open } : {}), ...(input.link ? { link: input.link } : {}), ...(input.period ? { period: input.period } : {}) };
+      if (next.open && !next.link) throw new ToolError(`The ${input.target} form has no link yet. Give me the form link before opening it.`, "validation");
+      if (same(cur, next)) return { changes: [], message: "", result: { status: "unchanged" } } as Plan<any>;
+      apps[input.target] = next;
+      const what = [input.open !== undefined ? (input.open ? "open" : "close") : "", input.link ? "link" : "", input.period ? "dates" : ""].filter(Boolean).join(", ");
+      return { changes: [{ path: DATA_FILES.site, text: out(site) }], message: `Update ${input.target} application (${what})`, result: { status: "updated", application: apps[input.target] } } as Plan<any>;
     });
     return { ...r.result, commit: r.commit };
   }
