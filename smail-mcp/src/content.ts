@@ -78,8 +78,8 @@ export class ContentService {
   }
 
   // ── People ───────────────────────────────────────────────
-  private applyPerson(people: Json[], cohorts: Json[], raw: unknown): PersonResult {
-    const input = parse(PersonInput, raw);
+  /** The rules every person must satisfy. Returns whether the group needs a cohort. */
+  private checkPerson(input: PersonInput, cohorts: Json[]): boolean {
     const needsCohort = input.group === "mentor" || input.group === "student";
     if (needsCohort && !input.cohort) throw new ToolError(`${input.group} entries need a cohort number.`);
     if (!needsCohort && input.cohort) throw new ToolError(`${input.group} entries do not belong to a cohort.`);
@@ -89,7 +89,35 @@ export class ContentService {
     if (input.group === "board" && !input.title) throw new ToolError("board members need a title (their role).");
     if (input.group === "mentor" && (!input.title || !input.affiliation)) throw new ToolError("mentors need a title and an affiliation.");
     if (input.group === "student" && !input.affiliation) throw new ToolError("students need an affiliation (university).");
+    return needsCohort;
+  }
 
+  /** Change fields of an existing person (rename, move cohort, new title...). Only what is given changes. */
+  async updatePerson(id: string, patch: Record<string, unknown>) {
+    const r = await this.repo.transact(async (read) => {
+      const people = await readArray(read, DATA_FILES.people);
+      const cohorts = await readArray(read, DATA_FILES.cohorts);
+      const i = people.findIndex((p) => p.id === id);
+      if (i < 0) throw new ToolError(`No person with id "${id}". Use list_content to see ids.`, "not_found");
+      const cur = people[i];
+      const base = { name: cur.name, group: cur.group, cohort: cur.cohort ?? undefined, title: cur.title, affiliation: cur.affiliation, link: cur.link, mentor: cur.mentor, region: cur.region, image: cur.image };
+      const { placeholder, ...rest } = patch as any;
+      const input = parse(PersonInput, { ...Object.fromEntries(Object.entries(base).filter(([, v]) => v !== undefined && v !== null)), ...rest, ...(placeholder ? {} : {}) });
+      const needsCohort = this.checkPerson(input, cohorts);
+      const cohort = needsCohort ? input.cohort! : null;
+      const newId = slug(input.name) + (cohort ? `-c${cohort}` : "");
+      if (newId !== id && people.some((p) => p.id === newId)) throw new ToolError(`There is already someone with that name in that group and cohort ("${newId}").`, "conflict");
+      const next: Json = { ...cur, ...Object.fromEntries(Object.entries({ name: input.name, title: input.title, affiliation: input.affiliation, link: input.link, mentor: input.mentor, region: input.region, image: input.image, ...(patch as any).published !== undefined ? { published: (patch as any).published } : {} }).filter(([, v]) => v !== undefined)), id: newId, cohort };
+      if (same(next, cur)) return { changes: [], message: "", result: { status: "unchanged", id } } as Plan<any>;
+      people[i] = next;
+      return { changes: [{ path: DATA_FILES.people, text: out(people) }], message: `Update ${next.group} ${next.name}`, result: { status: "updated", id: newId, person: next } } as Plan<any>;
+    });
+    return { ...r.result, commit: r.commit };
+  }
+
+  private applyPerson(people: Json[], cohorts: Json[], raw: unknown): PersonResult {
+    const input = parse(PersonInput, raw);
+    const needsCohort = this.checkPerson(input, cohorts);
     const cohort = needsCohort ? input.cohort! : null;
     const id = slug(input.name) + (cohort ? `-c${cohort}` : "");
     const existing = people.find((p) => p.id === id);

@@ -277,3 +277,27 @@ describe("registration forms", () => {
     await expect(applyOps(repo, [{ op: "set_application", application: { target: "mentor", open: true } }], [])).rejects.toThrow(/link/);
   });
 });
+
+describe("edits that only change part of something", () => {
+  const withStudent = () => {
+    const base = seed();
+    return new FakeRepo({ ...base, "data/people.json": JSON.stringify([{ id: "ehab-alqumboz-c1", group: "student", cohort: 1, order: 0, published: true, name: "Ehab Alqumboz", image: "images/male-icon.png", affiliation: { en: "University of Jeddah", ar: "جامعة جدة" }, mentor: "Yahya Bokhari" }]), "data/cohorts.json": JSON.stringify([{ id: 1, label: { en: "Cohort 1", ar: "الدفعة الأولى" }, status: "completed", published: true }, { id: 3, label: { en: "Cohort 3", ar: "الدفعة الثالثة" }, status: "coming_soon", published: true }]), "data/site.json": JSON.stringify({ banner: { published: true, text: { en: "Hi", ar: "مرحبا" } } }) });
+  };
+  it("renames a student without asking for the university again", async () => {
+    const repo = withStudent();
+    await applyOps(repo, [{ op: "update_person", id: "ehab-alqumboz-c1", patch: { name: "Ehab Alqumbouz" } }], []);
+    const p = repo.json("data/people.json")[0];
+    expect(p).toMatchObject({ name: "Ehab Alqumbouz", id: "ehab-alqumbouz-c1", mentor: "Yahya Bokhari", affiliation: { en: "University of Jeddah" } });
+  });
+  it("moves someone to another cohort and keeps everything else", async () => {
+    const repo = withStudent();
+    await applyOps(repo, [{ op: "update_person", id: "ehab-alqumboz-c1", patch: { cohort: 3 } }], []);
+    expect(repo.json("data/people.json")[0]).toMatchObject({ cohort: 3, id: "ehab-alqumboz-c3", affiliation: { en: "University of Jeddah" } });
+  });
+  it("hides the banner without repeating its text, and marks a cohort open without its label", async () => {
+    const repo = withStudent();
+    await applyOps(repo, [{ op: "set_banner", banner: { published: false } }, { op: "upsert_cohort", cohort: { id: 3, status: "open" } }], []);
+    expect(repo.json("data/site.json").banner).toMatchObject({ published: false, text: { en: "Hi" } });
+    expect(repo.json("data/cohorts.json").find((c: any) => c.id === 3)).toMatchObject({ status: "open", label: { en: "Cohort 3" } });
+  });
+});

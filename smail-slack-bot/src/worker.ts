@@ -89,6 +89,7 @@ export function describeOp(o: Op): string {
       const bits = [p.group, p.cohort ? `cohort ${p.cohort}` : "", en(p.title), en(p.affiliation)].filter(Boolean).join(", ");
       return `Add or update ${p.name ?? "a person"}${bits ? ` (${bits})` : ""}${o.attachment !== undefined ? ", with the attached photo" : ""}`;
     }
+    case "update_person": return `Change ${(o.patch as any).name ? "the name of " : ""}${o.id}: ${Object.keys(o.patch).join(", ")}`;
     case "post_news": return `Post news: ${en((o.news as any).title)}`;
     case "update_news": return `Edit the news item ${o.id}`;
     case "set_banner": return `Set the banner: ${en((o.banner as any).text)}`;
@@ -129,7 +130,14 @@ export async function buildAndReview(c: Config, db: Db, n: Notifier, job: Job, o
     const lines = summary.map((i) => i.text);
     await n.status(job, M.progress(3, "Checking the change and building the preview"));
     await syncSiteFiles(repoFor(c, branch));
-    assertAllowedPaths(await admin.changedFiles(branch));
+    const changed = await admin.changedFiles(branch);
+    if (!changed.length) { // asked for something that is already true: nothing to review
+      db.update(job.id, { state: "declined", error: "no change needed" });
+      await cleanup(c, db, job.id);
+      await n.status(job, M.alreadyDone());
+      return;
+    }
+    assertAllowedPaths(changed);
     const pr = await admin.openPr(branch, lines.join("; ").slice(0, 120), `Requested in Slack by <@${job.requester}>.\n\n${lines.map((s) => `- ${s}`).join("\n")}`);
     await publishPreview(c.previewRoot, slug, await admin.tarball(branch));
     db.update(job.id, { state: "awaiting_approval", slug, pr, summary: JSON.stringify(summary) });

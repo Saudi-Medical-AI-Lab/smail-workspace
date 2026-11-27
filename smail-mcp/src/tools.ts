@@ -79,6 +79,13 @@ export function buildServer(svc: ContentService): McpServer {
     annotations: UPSERT,
   }, (a) => run("bulk_import_people", true, () => svc.bulkImportPeople(a.people)));
 
+  server.registerTool("update_person", {
+    title: "Change an existing person",
+    description: "Change fields of someone already on the site (rename, move to another cohort, new title or affiliation, new link). id comes from list_content. Only the fields in patch change; the rest stays as it is. Titles and affiliations need English and Arabic.",
+    inputSchema: z.object({ id: z.string(), patch: z.record(z.string(), z.unknown()) }),
+    annotations: UPSERT,
+  }, (a) => run("update_person", true, () => svc.updatePerson(a.id, a.patch)));
+
   server.registerTool("upsert_cohort", {
     title: "Add or update a cohort",
     description:

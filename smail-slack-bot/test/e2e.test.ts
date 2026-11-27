@@ -299,3 +299,13 @@ describe("undo of a change that was not made by the bot", () => {
     expect(last(job.id).text).toMatch(/wasn't made through me/);
   });
 });
+
+describe("asking for something that is already true", () => {
+  it("says so, builds no pull request, and leaves nothing behind", async () => {
+    fakeClaude({ ops: [{ op: "set_application", application: { target: "student", open: false } }] }); // the form is already closed
+    const job = newJob("close the student form"); await runJob(c, db, notifier, job, []);
+    expect(db.getJob(job.id)!.state).toBe("declined");
+    expect(last(job.id).text).toMatch(/already like that/);
+    expect(gh.prs.size).toBe(0);
+  });
+});

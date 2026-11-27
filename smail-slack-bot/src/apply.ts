@@ -72,9 +72,15 @@ export async function applyOps(repo: RepoPort, ops: Op[], attachments: Attachmen
         break;
       }
       case "update_news": { await svc.updateNews(op.id, op.patch); lines.push({ text: `Update news ${op.id}` }); break; }
-      case "set_banner": { await svc.setBanner(op.banner); lines.push({ text: "Update banner" }); break; }
+      case "update_person": { await svc.updatePerson(op.id, op.patch); lines.push({ text: `Update ${(op.patch as any).name ?? op.id}` }); break; }
+      case "set_banner": {
+        const cur: any = (await svc.list("banner")) ?? {}; // hiding or editing the banner keeps what was not mentioned
+        await svc.setBanner({ ...cur, ...op.banner }); lines.push({ text: "Update banner" }); break; }
       case "set_application": { const a: any = op.application; await svc.setApplication(a); lines.push({ text: `${a.target === "mentor" ? "Mentor" : "Student"} form: ${[a.open === true ? "open it" : a.open === false ? "close it" : "", a.link ? "new link" : "", a.period ? "new dates" : ""].filter(Boolean).join(", ") || "no change"}` }); break; }
-      case "upsert_cohort": { await svc.upsertCohort(op.cohort); lines.push({ text: `Update cohort ${(op.cohort as any).id ?? ""}`.trim() }); break; }
+      case "upsert_cohort": {
+        const all: any[] = (await svc.list("cohorts")) as any[];
+        const have = all.find((c) => c.id === (op.cohort as any).id);
+        await svc.upsertCohort({ ...(have ? { label: have.label, status: have.status } : {}), ...op.cohort }); lines.push({ text: `Update cohort ${(op.cohort as any).id ?? ""}`.trim() }); break; }
       case "set_visibility": { await svc.setVisibility(op.kind, op.id, op.published); lines.push({ text: `${op.published ? "Show" : "Hide"} ${op.kind} ${op.id}` }); break; }
       case "remove_item": { await svc.removeItem(op.kind, op.id, true); lines.push({ text: `Remove ${op.kind} ${op.id}` }); break; }
       case "undo": throw new ToolError("Undo cannot be combined with other changes.");
