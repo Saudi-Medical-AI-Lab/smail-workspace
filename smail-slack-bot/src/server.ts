@@ -4,7 +4,7 @@ import { checkSiblings } from "./preflight";
 import { openDb, type Job } from "./db";
 import { normalizeImage, downloadSlackFile } from "./images";
 import { approve, choose, confirm, decline, newJobId, notQuite, runJob, type Notifier } from "./worker";
-import { runClaude } from "./parser";
+import { isTrivial, makeLimiter, runClaude } from "./parser";
 import type { Attachment } from "./apply";
 import * as M from "./messages";
 import type { Msg } from "./messages";
@@ -41,6 +41,7 @@ const notifier: Notifier = {
   async alert(m: Msg) { await app.client.chat.postMessage({ channel: c.channelId, text: m.text, blocks: m.blocks }); },
 };
 
+const modelBudget = makeLimiter(Number(process.env.MODEL_CALLS_PER_10_MIN ?? 20), 10 * 60_000);
 let botUserId = "";
 
 /** Earlier messages of the same thread, so a short answer ("female") still makes sense. */
@@ -80,6 +81,8 @@ async function handleRequest(event: any, eventId: string, implicit: boolean) {
   if (/^(help|\?)$/i.test(text)) return void (await reply(M.help()));
   if (db.paused) return implicit ? undefined : void (await reply(":double_vertical_bar: I'm paused by an admin right now. Please try again later."));
 
+  if (implicit && !hasFiles && isTrivial(text)) return; // "ok", emoji: no reply and no model call
+  if (!modelBudget()) return void (await reply(":hourglass_flowing_sand: I'm getting a lot of messages at once. Please wait a few minutes and try again."));
   void react(event.channel, event.ts, "eyes"); // seen: the bot has this message
   const id = newJobId();
   const urls: string[] = (event.files ?? []).filter((f: any) => /^image\//.test(f.mimetype ?? "")).slice(0, 10).map((f: any) => f.url_private_download ?? f.url_private);

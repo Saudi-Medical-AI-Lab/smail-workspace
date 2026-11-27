@@ -242,3 +242,13 @@ describe("untrusted input (prompt injection, SQL injection, mentions)", () => {
     expect(db.getJob("a")).toBeTruthy(); // table still there
   });
 });
+
+describe("saving usage", () => {
+  it("skips trivial messages and limits bursts", async () => {
+    const { isTrivial, makeLimiter } = await import("../src/parser");
+    for (const t of ["lmao", "👍", ":thumbsup:", "ok!", "  ", "<@U1>"]) expect(isTrivial(t)).toBe(true);
+    for (const t of ["hi", "add Sara Ali", "what can you do?", "مرحبا"]) expect(isTrivial(t)).toBe(false);
+    const ok = makeLimiter(2, 60_000);
+    expect([ok(), ok(), ok()]).toEqual([true, true, false]);
+  });
+});

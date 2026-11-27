@@ -50,6 +50,7 @@ export async function runClaude(bin: string, prompt: string, timeoutMs: number):
       "--tools", "",
       "--no-session-persistence",
       "--append-system-prompt", SYSTEM,
+      ...(process.env.CLAUDE_MODEL ? ["--model", process.env.CLAUDE_MODEL] : []), // a smaller model saves subscription usage
     ];
     const out = await new Promise<string>((resolve, reject) => {
       const child = spawn(bin, args, { cwd, env: process.env, stdio: ["pipe", "pipe", "pipe"] });
@@ -83,4 +84,22 @@ export async function parseRequest(bin: string, text: string, attachments: numbe
   const r = ParseResult.safeParse(raw);
   if (!r.success) throw new Error("The model's answer did not match the expected format.");
   return r.data;
+}
+
+/** Messages that need no model call at all (emoji-only, "ok", "lol"...). Saves subscription usage. */
+export function isTrivial(text: string): boolean {
+  const t = text.replace(/<[^>]+>|:[a-z0-9_+-]+:/gi, "").trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return true;
+  return /^(ok(ay)?|k|thanks?|thx|ty|lol|lmao|haha+|nice|cool|great|yes|no|yep|nope|\+1)[.!? ]*$/i.test(t);
+}
+
+/** At most `max` model calls per `windowMs`, so a burst of messages cannot burn the subscription. */
+export function makeLimiter(max: number, windowMs: number) {
+  const hits: number[] = [];
+  return () => {
+    const now = Date.now();
+    while (hits.length && now - hits[0] > windowMs) hits.shift();
+    if (hits.length >= max) return false;
+    hits.push(now); return true;
+  };
 }
