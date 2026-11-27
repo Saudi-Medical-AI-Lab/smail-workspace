@@ -17,6 +17,8 @@ export interface Notifier {
   /** A new message in the job's thread (does not replace the status card). */
   note(job: Job, m: Msg): Promise<void>;
   alert(m: Msg): Promise<void>;
+  /** Delete the job's status message (used when a message turns out not to be a request). */
+  remove?(job: Job): Promise<void>;
 }
 
 const repoFor = (c: Config, branch: string) =>
@@ -24,13 +26,19 @@ const repoFor = (c: Config, branch: string) =>
 const adminFor = (c: Config) => new GitHubAdmin({ owner: c.githubOwner, repo: c.githubRepo, token: c.githubToken, base: c.githubBranch });
 
 /** Runs one queued job: parse -> branch -> apply -> validate -> preview -> ask for approval. */
-export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachments: Attachment[]): Promise<void> {
+export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachments: Attachment[], quiet = false): Promise<void> {
   const admin = adminFor(c);
   try {
     db.update(job.id, { state: "parsing" });
-    await n.status(job, M.working());
+    if (!quiet) await n.status(job, M.working());
     const mainRepo = repoFor(c, c.githubBranch);
     const parsed = await parseRequest(c.claudeBin, job.text, attachments.length, await loadSummary(mainRepo), c.claudeTimeoutMs);
+    if (!parsed.ops.length && parsed.ignore) {
+      db.update(job.id, { state: "declined", error: "ignored (not a site request)" });
+      if (!quiet) await n.remove?.(job);
+      return;
+    }
+    if (quiet) await n.status(job, M.working());
     if (!parsed.ops.length) {
       db.update(job.id, { state: "declined", error: parsed.question ?? "No change requested." });
       await n.status(job, parsed.question ? M.needInfo(parsed.question) : M.noChange());

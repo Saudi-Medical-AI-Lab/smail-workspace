@@ -21,6 +21,8 @@ export const ParseResult = z.object({
   ops: z.array(Op).max(20),
   // Set instead of ops when the request is ambiguous or not a site edit.
   question: z.string().max(400).optional(),
+  // True when the message is not a site request at all (chat, thanks, discussion). The bot stays silent.
+  ignore: z.boolean().optional(),
 });
 export type ParseResult = z.infer<typeof ParseResult>;
 
@@ -49,6 +51,7 @@ export const PARSE_JSON_SCHEMA = {
       },
     },
     question: { type: "string" },
+    ignore: { type: "boolean" },
   },
   required: ["ops"],
 } as const;

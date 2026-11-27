@@ -16,6 +16,7 @@ Operations (fields):
 - update_news: id + patch. set_banner: banner {published, text{en,ar}, link?, linkText{en,ar}?}. upsert_cohort: cohort {id, label{en,ar}, status completed|open|coming_soon}.
 - set_visibility: kind, id, published. remove_item: kind, id. undo: revert the last change.
 Rules: every title/affiliation/news text must have BOTH en and ar; if one language is missing, translate it faithfully. Never invent facts, links or people. If the request is unclear, not a site edit, or the target does not exist in the data, return ops [] and a short "question".
+This bot listens to every message in its channel. If the latest message is NOT a request about the website (greetings, thanks, people chatting, questions to each other), return ops [] and ignore true, with no question. Only use "question" for messages that look like an attempted site edit. Earlier messages of the same thread are given as context: use them to complete the request.
 Ask (ops [], one short question listing everything missing) BEFORE adding a person when required details are missing: a mentor needs title and affiliation; a board member needs a title; a student needs affiliation; a mentor or student needs a cohort; and if no photo is attached, ask whether to use a male or female placeholder. Never leave required fields empty and never guess them. When translating a title for a woman (placeholder female, or the request says she/her), use the feminine Arabic form.
 Use ids exactly as shown in the DATA SUMMARY when editing existing items.`;
 

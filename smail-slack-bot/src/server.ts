@@ -17,7 +17,7 @@ const app = new App({ token: c.slackBotToken, signingSecret: c.slackSigningSecre
   ...(process.env.SLACK_API_URL ? { clientOptions: { slackApiUrl: process.env.SLACK_API_URL } } : {}) });
 
 // Attachments live in memory only until the job runs (they are re-downloaded from Slack, never stored on disk).
-const pending = new Map<string, { urls: string[] }>();
+const pending = new Map<string, { urls: string[]; quiet: boolean }>();
 /** "*" means everyone in the (private) channel. Used for both requesters and approvers. */
 const canRequest = (list: string[], id: string) => list.includes("*") || list.includes(id);
 
@@ -31,33 +31,72 @@ const notifier: Notifier = {
     return r.ts!;
   },
   async note(job: Job, m: Msg) { await app.client.chat.postMessage({ channel: job.channel, thread_ts: job.thread_ts, text: m.text, blocks: m.blocks }); },
+  async remove(job: Job) { if (job.message_ts) await app.client.chat.delete({ channel: job.channel, ts: job.message_ts }).catch(() => {}); },
   async alert(m: Msg) { await app.client.chat.postMessage({ channel: c.channelId, text: m.text, blocks: m.blocks }); },
 };
 
-app.event("app_mention", async ({ event, body, ack }: any) => {
-  if (ack) await ack();
-  if (!db.firstSeen(body.event_id)) return; // Slack retry
+let botUserId = "";
+
+/** Earlier messages of the same thread, so a short answer ("female") still makes sense. */
+async function threadContext(event: any): Promise<string> {
+  if (!event.thread_ts || event.thread_ts === event.ts) return "";
+  try {
+    const r: any = await app.client.conversations.replies({ channel: event.channel, ts: event.thread_ts, limit: 12 });
+    const lines = (r.messages ?? [])
+      .filter((m: any) => m.ts !== event.ts)
+      .map((m: any) => `${m.user === botUserId || m.bot_id ? "Bot" : "User"}: ${String(m.text ?? "").replace(/<@[A-Z0-9]+>/g, "").trim()}`)
+      .filter((l: string) => l.length > 6);
+    return lines.length ? `EARLIER MESSAGES IN THIS THREAD:\n${lines.join("\n").slice(-1500)}\n\nLATEST MESSAGE:\n` : "";
+  } catch { return ""; }
+}
+
+/** One handler for @mentions and for plain messages in the channel. Plain messages stay silent unless they are real requests. */
+async function handleRequest(event: any, eventId: string, implicit: boolean) {
+  if (!db.firstSeen(eventId)) return; // Slack retry
   if (event.channel !== c.channelId) return;
   const user: string = event.user;
   const text: string = String(event.text ?? "").replace(/<@[A-Z0-9]+>/g, "").trim();
   const reply = (m: Msg | string) => app.client.chat.postMessage({ channel: event.channel, thread_ts: event.thread_ts ?? event.ts, ...(typeof m === "string" ? { text: m } : { text: m.text, blocks: m.blocks }) });
 
-  if (!canRequest(c.requesters, user)) { db.audit(user, "denied_request"); return void (await reply(M.failed("You can't ask for changes yet. Ask an admin to add you to the list."))); }
+  if (!canRequest(c.requesters, user)) {
+    db.audit(user, "denied_request");
+    if (implicit) return;
+    return void (await reply(M.failed("You can't ask for changes yet. Ask an admin to add you to the list.")));
+  }
   const cmd = text.toLowerCase();
   if (cmd === "pause" || cmd === "resume") {
     if (!canRequest(c.approvers, user)) return void (await reply(M.failed("Only approvers can do that.")));
     db.setPaused(cmd === "pause"); db.audit(user, cmd);
     return void (await reply(cmd === "pause" ? ":double_vertical_bar: Paused. I won't start any new changes until someone says `resume`." : ":arrow_forward: I'm back. You can send requests again."));
   }
-  if (db.paused) return void (await reply(":double_vertical_bar: I'm paused by an admin right now. Please try again later."));
-  if ((!text && !(event.files?.length)) || /^(help|\?)$/i.test(text)) return void (await reply(M.help()));
+  const hasFiles = !!(event.files?.length);
+  if (!text && !hasFiles) return implicit ? undefined : void (await reply(M.help()));
+  if (/^(help|\?)$/i.test(text)) return void (await reply(M.help()));
+  if (db.paused) return implicit ? undefined : void (await reply(":double_vertical_bar: I'm paused by an admin right now. Please try again later."));
 
   const id = newJobId();
   const urls: string[] = (event.files ?? []).filter((f: any) => /^image\//.test(f.mimetype ?? "")).slice(0, 10).map((f: any) => f.url_private_download ?? f.url_private);
-  pending.set(id, { urls });
-  db.createJob({ id, channel: event.channel, thread_ts: event.thread_ts ?? event.ts, requester: user, text: text || "(see attached image)", kind: "edit" });
+  pending.set(id, { urls, quiet: implicit });
+  const context = await threadContext(event);
+  db.createJob({ id, channel: event.channel, thread_ts: event.thread_ts ?? event.ts, requester: user, text: (context + (text || "(see attached image)")), kind: "edit" });
   db.audit(user, "request", id, text.slice(0, 200));
   void drain();
+}
+
+app.event("app_mention", async ({ event, body, ack }: any) => {
+  if (ack) await ack();
+  await handleRequest(event, body.event_id, false);
+});
+
+// Every other message in the channel (no @mention needed). Messages that mention the bot are handled above.
+app.message(async ({ message, body, ack }: any) => {
+  if (ack) await ack();
+  const m: any = message;
+  if (m.channel !== c.channelId) return;
+  if (m.bot_id || m.user === botUserId || !m.user) return;
+  if (m.subtype && m.subtype !== "file_share") return;
+  if (botUserId && String(m.text ?? "").includes(`<@${botUserId}>`)) return;
+  await handleRequest(m, body.event_id, true);
 });
 
 let draining = false;
@@ -79,7 +118,7 @@ async function drain() {
         await notifier.status(job, M.failed((e as Error).message));
         continue;
       }
-      await runJob(c, db, notifier, job, atts);
+      await runJob(c, db, notifier, job, atts, p?.quiet ?? false);
     }
   } finally { draining = false; }
 }
@@ -118,6 +157,7 @@ for (const state of ["queued", "parsing"] as const) {
 }
 
 await app.start();
+botUserId = String(((await app.client.auth.test()) as any).user_id ?? "");
 console.log(`smail-slack-bot listening on :${c.port} (dryRun=${c.dryRun})`);
 setInterval(health, 30 * 60_000).unref();
 // Expire stale approvals (older than 24h) so previews and branches do not pile up.
