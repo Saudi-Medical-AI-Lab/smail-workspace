@@ -18,8 +18,7 @@ const app = new App({ token: c.slackBotToken, signingSecret: c.slackSigningSecre
 
 // Attachments live in memory only until the job runs (they are re-downloaded from Slack, never stored on disk).
 const pending = new Map<string, { urls: string[] }>();
-const inList = (list: string[], id: string) => list.includes(id);
-/** Requesters may be "*" (everyone in the private channel). Approvers are never wildcard. */
+/** "*" means everyone in the (private) channel. Used for both requesters and approvers. */
 const canRequest = (list: string[], id: string) => list.includes("*") || list.includes(id);
 
 const notifier: Notifier = {
@@ -46,7 +45,7 @@ app.event("app_mention", async ({ event, body, ack }: any) => {
   if (!canRequest(c.requesters, user)) { db.audit(user, "denied_request"); return void (await reply(M.failed("You can't ask for changes yet. Ask an admin to add you to the list."))); }
   const cmd = text.toLowerCase();
   if (cmd === "pause" || cmd === "resume") {
-    if (!inList(c.approvers, user)) return void (await reply(M.failed("Only approvers can do that.")));
+    if (!canRequest(c.approvers, user)) return void (await reply(M.failed("Only approvers can do that.")));
     db.setPaused(cmd === "pause"); db.audit(user, cmd);
     return void (await reply(cmd === "pause" ? ":double_vertical_bar: Paused. I won't start any new changes until someone says `resume`." : ":arrow_forward: I'm back. You can send requests again."));
   }
@@ -93,7 +92,7 @@ for (const action of ["approve", "decline"] as const) {
     await ack();
     const user: string = body.user.id;
     const id: string = a.value;
-    if (!inList(c.approvers, user)) {
+    if (!canRequest(c.approvers, user)) {
       db.audit(user, "denied_" + action, id);
       return void (await app.client.chat.postEphemeral({ channel: body.channel.id, user, text: M.denied("Only approvers can approve or decline changes.") }));
     }
