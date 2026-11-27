@@ -290,3 +290,12 @@ describe("chat", () => {
     expect(last(job.id).text).not.toContain("evil");
   });
 });
+
+describe("undo of a change that was not made by the bot", () => {
+  it("says so instead of offering an undo button that would fail", async () => {
+    fakeClaude({ ops: [{ op: "undo" }] });
+    const job = newJob("undo"); await runJob(c, db, notifier, job, []);
+    expect(db.getJob(job.id)!.state).toBe("failed");
+    expect(last(job.id).text).toMatch(/wasn't made through me/);
+  });
+});

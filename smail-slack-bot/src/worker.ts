@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { GitHubRepo } from "../../smail-mcp/src/github";
+import { BOT_PREFIX, GitHubRepo } from "../../smail-mcp/src/github";
 import { ToolError } from "../../smail-mcp/src/guard";
 import { applyOps, loadSummary, type Attachment } from "./apply";
 import { GitHubAdmin, assertAllowedPaths } from "./branch";
@@ -62,6 +62,7 @@ export async function runJob(c: Config, db: Db, n: Notifier, job: Job, attachmen
     if (parsed.ops.some((o) => o.op === "undo")) {
       if (parsed.ops.length > 1) throw new ToolError("Undo cannot be combined with other changes.");
       const head = await mainRepo.head();
+      if (!head.message.startsWith(BOT_PREFIX)) throw new ToolError("The last change on the website wasn't made through me, so I can't undo it. Please undo it on GitHub, or ask a developer.");
       db.update(job.id, { kind: "undo", state: "awaiting_approval", summary: JSON.stringify([{ text: `Undo: ${head.message.split("\n")[0].replace(/^\[smail-mcp\] /, "")}` }]) });
       await n.status(job, M.undoCard(job, head.message.split("\n")[0].replace(/^\[smail-mcp\] /, "")));
       return;
