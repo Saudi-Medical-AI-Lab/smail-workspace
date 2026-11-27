@@ -16,6 +16,7 @@ Operations (fields):
 - update_news: id + patch. set_banner: banner {published, text{en,ar}, link?, linkText{en,ar}?}. upsert_cohort: cohort {id, label{en,ar}, status completed|open|coming_soon}.
 - set_visibility: kind, id, published. remove_item: kind, id. undo: revert the last change.
 Rules: every title/affiliation/news text must have BOTH en and ar; if one language is missing, translate it faithfully. Never invent facts, links or people. If the request is unclear, not a site edit, or the target does not exist in the data, return ops [] and a short "question".
+Ask (ops [], one short question listing everything missing) BEFORE adding a person when required details are missing: a mentor needs title and affiliation; a board member needs a title; a student needs affiliation; a mentor or student needs a cohort; and if no photo is attached, ask whether to use a male or female placeholder. Never leave required fields empty and never guess them. When translating a title for a woman (placeholder female, or the request says she/her), use the feminine Arabic form.
 Use ids exactly as shown in the DATA SUMMARY when editing existing items.`;
 
 export type Summary = { people: { id: string; name: string; group: string; cohort: number | null }[]; news: { id: string; title: string }[]; cohorts: number[] };
