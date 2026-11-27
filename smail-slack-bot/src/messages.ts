@@ -106,7 +106,7 @@ export function confirmCard(job: { id: string; requester: string }, understood: 
 export function choiceCard(job: { id: string; requester: string }, question: string, choices: { label: string; text: string }[]): Msg {
   return msg(question,
     { type: "header", text: { type: "plain_text", text: "Which one do you mean?" } },
-    section(`:thinking_face: ${esc(question)}\n\n` + choices.map((c, i) => `*${i + 1}.* ${esc(c.text)}`).join("\n")),
+    section(`:thinking_face: ${esc(question)}\n\n` + choices.map((c, i) => `*${i + 1}.* ${esc(c.label)}`).join("\n")),
     { type: "actions", block_id: `job:${job.id}`, elements: [
       ...choices.map((c, i) => ({ type: "button", action_id: `choose_${i}`, value: job.id, text: { type: "plain_text", text: c.label.slice(0, 70) } })),
       { type: "button", action_id: "not_quite", value: job.id, text: { type: "plain_text", text: "None of these" } },
