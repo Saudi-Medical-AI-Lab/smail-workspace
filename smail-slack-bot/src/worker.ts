@@ -98,6 +98,20 @@ export function describeOp(o: Op): string {
   }
 }
 
+/** The page that shows the change, so the preview link opens right where the change is. */
+export function pageFor(ops: Op[]): string {
+  const pages: Record<string, string> = { board: "board.html", staff: "staff.html", staff_alumni: "staff.html", mentor: "mentors.html", student: "students.html" };
+  for (const o of ops) {
+    if (o.op === "upsert_person") {
+      const page = pages[String((o.person as any).group)] ?? "";
+      const cohort = Number((o.person as any).cohort);
+      return page && cohort ? `${page}?cohort=${cohort}` : page;
+    }
+    if (o.op === "post_news" || o.op === "update_news") return "news.html";
+  }
+  return "";
+}
+
 /** Branch, apply, check, preview, then ask for approval. */
 export async function buildAndReview(c: Config, db: Db, n: Notifier, job: Job, ops: Op[], attachments: Attachment[]): Promise<void> {
   const admin = adminFor(c);
@@ -118,7 +132,7 @@ export async function buildAndReview(c: Config, db: Db, n: Notifier, job: Job, o
     await publishPreview(c.previewRoot, slug, await admin.tarball(branch));
     db.update(job.id, { state: "awaiting_approval", slug, pr, summary: JSON.stringify(summary) });
     db.audit(job.requester, "prepared", job.id, lines.join("; "));
-    await n.status(job, M.review(job, summary, `${c.previewBaseUrl}/${slug}/`, { dryRun: c.dryRun }));
+    await n.status(job, M.review(job, summary, `${c.previewBaseUrl}/${slug}/${pageFor(ops)}`, { dryRun: c.dryRun }));
   } catch (e) {
     await failJob(c, db, n, job, e);
   }
