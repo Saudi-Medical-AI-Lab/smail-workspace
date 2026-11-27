@@ -11,11 +11,12 @@ export function loadConfig() {
     // An API key would silently switch billing away from the subscription.
     throw new Error("ANTHROPIC_API_KEY is set. Unset it: this bot is meant to run on the Claude subscription token.");
   }
+  if (list("APPROVER_USER_IDS").includes("*")) throw new Error("APPROVER_USER_IDS cannot be \"*\". Name the people who may approve.");
   return {
     slackBotToken: need("SLACK_BOT_TOKEN"),
     slackSigningSecret: need("SLACK_SIGNING_SECRET"),
     channelId: need("SLACK_CHANNEL_ID"),
-    requesters: list("REQUESTER_USER_IDS"), // may start jobs
+    requesters: list("REQUESTER_USER_IDS"), // may start jobs; "*" = anyone in the channel
     approvers: list("APPROVER_USER_IDS"), // may Approve / Decline / undo
     githubOwner: need("GITHUB_OWNER"),
     githubRepo: need("GITHUB_REPO"),

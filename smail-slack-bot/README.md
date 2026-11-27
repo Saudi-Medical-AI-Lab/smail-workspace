@@ -10,7 +10,7 @@ Slack -> preview -> Approve/Decline -> live, for smail.org.sa. Reuses `../smail-
 `@smail-bot add Sara Ali, mentor cohort 3, KFSH` (+ photo) -> the Claude CLI (subscription token, no tools) turns the text into JSON operations -> validated by smail-mcp -> committed to branch `slack/<id>` -> PR opened -> preview at `PREVIEW_BASE_URL/<slug>/` -> Approve squash-merges to `main` (GitHub Pages publishes) / Decline deletes branch, PR and preview. `@smail-bot undo` reverts the last bot commit (with a confirm card). `@smail-bot pause|resume` (approvers).
 
 ## Safety rules (enforced in code)
-- Only users in `REQUESTER_USER_IDS` may ask; only `APPROVER_USER_IDS` may Approve/Decline. One channel only.
+- Only users in `REQUESTER_USER_IDS` may ask (`*` = everyone in the private channel); only `APPROVER_USER_IDS` may Approve/Decline. One channel only.
 - The model has no tools and cannot touch files. Its JSON is re-validated; the branch diff must only touch `data/*.json` and `images/<folder>/*` or the job is discarded.
 - Slack signature checked by Bolt; events deduped by `event_id`; double clicks cannot double-approve.
 - Slack token is only ever sent to `*.slack.com`. Images are magic-byte checked, re-encoded and capped at 800px / 5 MB.

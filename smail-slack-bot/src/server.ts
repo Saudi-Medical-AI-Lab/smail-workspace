@@ -19,6 +19,8 @@ const app = new App({ token: c.slackBotToken, signingSecret: c.slackSigningSecre
 // Attachments live in memory only until the job runs (they are re-downloaded from Slack, never stored on disk).
 const pending = new Map<string, { urls: string[] }>();
 const inList = (list: string[], id: string) => list.includes(id);
+/** Requesters may be "*" (everyone in the private channel). Approvers are never wildcard. */
+const canRequest = (list: string[], id: string) => list.includes("*") || list.includes(id);
 
 const notifier: Notifier = {
   async status(job: Job, m: Msg) {
@@ -41,7 +43,7 @@ app.event("app_mention", async ({ event, body, ack }: any) => {
   const text: string = String(event.text ?? "").replace(/<@[A-Z0-9]+>/g, "").trim();
   const reply = (m: Msg | string) => app.client.chat.postMessage({ channel: event.channel, thread_ts: event.thread_ts ?? event.ts, ...(typeof m === "string" ? { text: m } : { text: m.text, blocks: m.blocks }) });
 
-  if (!inList(c.requesters, user)) { db.audit(user, "denied_request"); return void (await reply(M.failed("You can't ask for changes yet. Ask an admin to add you to the list."))); }
+  if (!canRequest(c.requesters, user)) { db.audit(user, "denied_request"); return void (await reply(M.failed("You can't ask for changes yet. Ask an admin to add you to the list."))); }
   const cmd = text.toLowerCase();
   if (cmd === "pause" || cmd === "resume") {
     if (!inList(c.approvers, user)) return void (await reply(M.failed("Only approvers can do that.")));
